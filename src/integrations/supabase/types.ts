@@ -14,7 +14,275 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      automations: {
+        Row: {
+          actions: Json | null
+          active: boolean
+          bot_id: string
+          created_at: string
+          id: string
+          name: string
+          trigger_config: Json | null
+          trigger_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          actions?: Json | null
+          active?: boolean
+          bot_id: string
+          created_at?: string
+          id?: string
+          name: string
+          trigger_config?: Json | null
+          trigger_type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          actions?: Json | null
+          active?: boolean
+          bot_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+          trigger_config?: Json | null
+          trigger_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automations_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bot_logs: {
+        Row: {
+          bot_id: string
+          created_at: string
+          id: string
+          level: string
+          message: string
+          source: string | null
+          user_id: string
+        }
+        Insert: {
+          bot_id: string
+          created_at?: string
+          id?: string
+          level?: string
+          message: string
+          source?: string | null
+          user_id: string
+        }
+        Update: {
+          bot_id?: string
+          created_at?: string
+          id?: string
+          level?: string
+          message?: string
+          source?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bot_logs_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bot_modules: {
+        Row: {
+          bot_id: string
+          config: Json | null
+          created_at: string
+          enabled: boolean
+          id: string
+          module_name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bot_id: string
+          config?: Json | null
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          module_name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bot_id?: string
+          config?: Json | null
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          module_name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bot_modules_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bots: {
+        Row: {
+          bot_avatar: string | null
+          bot_id: string | null
+          bot_name: string
+          created_at: string
+          guild_count: number | null
+          id: string
+          prefix: string | null
+          status: string
+          token_encrypted: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bot_avatar?: string | null
+          bot_id?: string | null
+          bot_name: string
+          created_at?: string
+          guild_count?: number | null
+          id?: string
+          prefix?: string | null
+          status?: string
+          token_encrypted: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bot_avatar?: string | null
+          bot_id?: string | null
+          bot_name?: string
+          created_at?: string
+          guild_count?: number | null
+          id?: string
+          prefix?: string | null
+          status?: string
+          token_encrypted?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      commands: {
+        Row: {
+          bot_id: string
+          buttons: Json | null
+          conditions: Json | null
+          cooldown: number | null
+          created_at: string
+          description: string | null
+          embed: Json | null
+          enabled: boolean
+          ephemeral: boolean | null
+          id: string
+          name: string
+          permissions: string[] | null
+          responses: Json | null
+          type: Database["public"]["Enums"]["command_type"]
+          updated_at: string
+          user_id: string
+          uses: number
+        }
+        Insert: {
+          bot_id: string
+          buttons?: Json | null
+          conditions?: Json | null
+          cooldown?: number | null
+          created_at?: string
+          description?: string | null
+          embed?: Json | null
+          enabled?: boolean
+          ephemeral?: boolean | null
+          id?: string
+          name: string
+          permissions?: string[] | null
+          responses?: Json | null
+          type?: Database["public"]["Enums"]["command_type"]
+          updated_at?: string
+          user_id: string
+          uses?: number
+        }
+        Update: {
+          bot_id?: string
+          buttons?: Json | null
+          conditions?: Json | null
+          cooldown?: number | null
+          created_at?: string
+          description?: string | null
+          embed?: Json | null
+          enabled?: boolean
+          ephemeral?: boolean | null
+          id?: string
+          name?: string
+          permissions?: string[] | null
+          responses?: Json | null
+          type?: Database["public"]["Enums"]["command_type"]
+          updated_at?: string
+          user_id?: string
+          uses?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commands_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          discord_avatar: string | null
+          discord_id: string | null
+          discord_username: string | null
+          email: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          discord_avatar?: string | null
+          discord_id?: string | null
+          discord_username?: string | null
+          email?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          discord_avatar?: string | null
+          discord_id?: string | null
+          discord_username?: string | null
+          email?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +291,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      command_type: "slash" | "prefix" | "context"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +418,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      command_type: ["slash", "prefix", "context"],
+    },
   },
 } as const
