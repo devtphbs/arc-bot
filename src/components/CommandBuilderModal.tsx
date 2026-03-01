@@ -68,7 +68,7 @@ export function CommandBuilderModal({ open, onClose, onSaved, editCommand }: Com
       setDescription(editCommand.description || "");
       setPermissions(editCommand.permissions || []);
       setResponses(Array.isArray(editCommand.responses) ? (editCommand.responses as string[]) : [""]);
-      setEmbed(editCommand.embed as EmbedData || { title: "", description: "", color: "#FFD700", footer: "", thumbnail: "", image: "" });
+      setEmbed((editCommand.embed as unknown as EmbedData) || { title: "", description: "", color: "#FFD700", footer: "", thumbnail: "", image: "" });
       setButtons(Array.isArray(editCommand.buttons) ? (editCommand.buttons as unknown as ButtonData[]) : []);
       setConditions(Array.isArray(editCommand.conditions) ? (editCommand.conditions as unknown as ConditionData[]) : []);
       setCooldown(editCommand.cooldown || 0);
@@ -91,10 +91,10 @@ export function CommandBuilderModal({ open, onClose, onSaved, editCommand }: Com
       description: description.trim(),
       type,
       permissions,
-      responses: responses.filter(Boolean),
-      embed: embed.title || embed.description ? embed : null,
-      buttons,
-      conditions,
+      responses: responses.filter(Boolean) as unknown as Json[],
+      embed: (embed.title || embed.description ? embed : null) as unknown as Json,
+      buttons: buttons as unknown as Json[],
+      conditions: conditions as unknown as Json[],
       cooldown,
       ephemeral,
     };
