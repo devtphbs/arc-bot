@@ -239,9 +239,9 @@ const parseButtons = (value: Json | null): ButtonData[] => {
         style: (typeof item.style === "string" ? item.style : "primary") as ButtonData["style"],
         url: typeof item.url === "string" ? item.url : "",
         response: typeof item.response === "string" ? item.response : "",
-      } satisfies ButtonData;
+      } as ButtonData;
     })
-    .filter((item): item is ButtonData => Boolean(item));
+    .filter(Boolean) as ButtonData[];
 };
 
 const parseConditions = (value: Json | null): ConditionData[] => {
@@ -401,13 +401,13 @@ export function CommandBuilderModal({ open, onClose, onSaved, editCommand }: Com
           command_id: commandId,
           cron: timer.cron.trim(),
           timezone: timer.timezone.trim() || "UTC",
-        },
+        } as unknown as Json,
         actions: {
           action: "run_command_blocks",
           command_id: commandId,
           blocks: builderConfig.blocks,
           variables: builderConfig.variables,
-        },
+        } as unknown as Json,
       })),
       ...validHooks.map((hook) => ({
         bot_id: selectedBot.id,
@@ -419,17 +419,17 @@ export function CommandBuilderModal({ open, onClose, onSaved, editCommand }: Com
           source: "command_builder_event",
           command_id: commandId,
           event: hook.event,
-        },
+        } as unknown as Json,
         actions: {
           action: hook.action,
           payload: hook.payload,
           blocks: builderConfig.blocks,
-        },
+        } as unknown as Json,
       })),
     ];
 
     if (automationRows.length > 0) {
-      const { error } = await supabase.from("automations").insert(automationRows);
+      const { error } = await supabase.from("automations").insert(automationRows as never);
       if (error) throw error;
     }
   };
