@@ -4,14 +4,14 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 
 const features = [
-  { icon: Terminal, title: "Visual Command Builder", desc: "Create slash, prefix, and context menu commands with embeds, buttons, and conditions" },
+  { icon: Terminal, title: "Visual Command Builder", desc: "Drag-and-drop blocks, embeds, buttons, conditions, and variables" },
   { icon: Shield, title: "Auto Moderation", desc: "Spam filters, word filters, and raid protection out of the box" },
   { icon: Zap, title: "Automations", desc: "Schedule messages, auto-assign roles, and trigger workflows" },
 ];
 
 export default function Index() {
   const navigate = useNavigate();
-  const { user, signInWithDiscord, loading } = useAuth();
+  const { user, signInWithGoogle, loading } = useAuth();
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -27,8 +27,8 @@ export default function Index() {
             Open Dashboard
           </button>
         ) : (
-          <button onClick={signInWithDiscord} disabled={loading} className="px-4 py-2 rounded-md bg-gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity glow-primary disabled:opacity-50">
-            Login with Discord
+          <button onClick={signInWithGoogle} disabled={loading} className="px-4 py-2 rounded-md bg-gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity glow-primary disabled:opacity-50">
+            Login with Google
           </button>
         )}
       </header>
@@ -51,8 +51,8 @@ export default function Index() {
                 Go to Dashboard <ArrowRight className="w-4 h-4" />
               </button>
             ) : (
-              <button onClick={signInWithDiscord} disabled={loading} className="flex items-center gap-2 px-6 py-3 rounded-md bg-gradient-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity glow-primary disabled:opacity-50">
-                Get Started with Discord <ArrowRight className="w-4 h-4" />
+              <button onClick={signInWithGoogle} disabled={loading} className="flex items-center gap-2 px-6 py-3 rounded-md bg-gradient-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity glow-primary disabled:opacity-50">
+                Get Started with Google <ArrowRight className="w-4 h-4" />
               </button>
             )}
           </div>
