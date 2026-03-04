@@ -43,7 +43,7 @@ const App = () => (
                 <Route path="logs" element={<DashboardLogs />} />
                 <Route path="settings" element={<DashboardSettings />} />
               </Route>
-              <Route path="/dashboard/command-builder" element={<ProtectedRoute><CommandBuilder /></ProtectedRoute>} />
+              <Route path="/dashboard/command-builder" element={<ProtectedRoute><BotProviderWrapper><CommandBuilder /></BotProviderWrapper></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
