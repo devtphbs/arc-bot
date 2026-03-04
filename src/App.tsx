@@ -16,6 +16,9 @@ import DashboardModeration from "./pages/DashboardModeration";
 import DashboardAutomations from "./pages/DashboardAutomations";
 import DashboardLogs from "./pages/DashboardLogs";
 import DashboardSettings from "./pages/DashboardSettings";
+import DashboardWelcome from "./pages/DashboardWelcome";
+import DashboardReactionRoles from "./pages/DashboardReactionRoles";
+import CommandBuilder from "./pages/CommandBuilder";
 
 const queryClient = new QueryClient();
 
@@ -32,12 +35,15 @@ const App = () => (
               <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
                 <Route index element={<DashboardOverview />} />
                 <Route path="commands" element={<DashboardCommands />} />
+                <Route path="welcome" element={<DashboardWelcome />} />
+                <Route path="reaction-roles" element={<DashboardReactionRoles />} />
                 <Route path="events" element={<DashboardEvents />} />
                 <Route path="moderation" element={<DashboardModeration />} />
                 <Route path="automations" element={<DashboardAutomations />} />
                 <Route path="logs" element={<DashboardLogs />} />
                 <Route path="settings" element={<DashboardSettings />} />
               </Route>
+              <Route path="/dashboard/command-builder" element={<ProtectedRoute><CommandBuilder /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

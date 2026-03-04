@@ -1,8 +1,8 @@
 import { motion } from "framer-motion";
-import { Plus, Search, MoreHorizontal, Slash, MessageSquare, MousePointerClick, ToggleLeft, ToggleRight, Trash2 } from "lucide-react";
+import { Plus, Search, Slash, MessageSquare, MousePointerClick, ToggleLeft, ToggleRight, Trash2 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { CommandBuilderModal } from "@/components/CommandBuilderModal";
 import { supabase } from "@/integrations/supabase/client";
 import { useBot } from "@/hooks/useBot";
 import { useAuth } from "@/hooks/useAuth";
@@ -15,12 +15,11 @@ const typeIcon = { slash: Slash, prefix: MessageSquare, context: MousePointerCli
 const typeLabel = { slash: "Slash", prefix: "Prefix", context: "Context" };
 
 export default function DashboardCommands() {
+  const navigate = useNavigate();
   const { selectedBot } = useBot();
   const { user } = useAuth();
   const [commands, setCommands] = useState<Command[]>([]);
   const [search, setSearch] = useState("");
-  const [builderOpen, setBuilderOpen] = useState(false);
-  const [editingCommand, setEditingCommand] = useState<Command | null>(null);
 
   const fetchCommands = async () => {
     if (!selectedBot) return;
@@ -50,7 +49,7 @@ export default function DashboardCommands() {
           <h1 className="text-2xl font-semibold text-foreground">Commands</h1>
           <p className="text-sm text-muted-foreground mt-1">Create and manage your bot commands</p>
         </div>
-        <button onClick={() => { setEditingCommand(null); setBuilderOpen(true); }} disabled={!selectedBot} className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity glow-primary disabled:opacity-50">
+        <button onClick={() => navigate("/dashboard/command-builder")} disabled={!selectedBot} className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity glow-primary disabled:opacity-50">
           <Plus className="w-4 h-4" /> New Command
         </button>
       </motion.div>
@@ -70,7 +69,7 @@ export default function DashboardCommands() {
               const TypeIcon = typeIcon[cmd.type];
               return (
                 <motion.div key={cmd.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }} className="flex items-center justify-between p-4 rounded-lg border border-border bg-card hover:border-primary/20 transition-colors">
-                  <div className="flex items-center gap-4 cursor-pointer" onClick={() => { setEditingCommand(cmd); setBuilderOpen(true); }}>
+                  <div className="flex items-center gap-4 cursor-pointer" onClick={() => navigate(`/dashboard/command-builder?edit=${cmd.id}`)}>
                     <div className="p-2 rounded-md bg-primary/10"><TypeIcon className="w-4 h-4 text-primary" /></div>
                     <div>
                       <div className="flex items-center gap-2">
@@ -93,8 +92,6 @@ export default function DashboardCommands() {
           </div>
         </>
       )}
-
-      <CommandBuilderModal open={builderOpen} onClose={() => { setBuilderOpen(false); setEditingCommand(null); }} onSaved={fetchCommands} editCommand={editingCommand} />
     </div>
   );
 }
