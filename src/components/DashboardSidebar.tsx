@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Terminal, Zap, Shield, RefreshCw, ScrollText, Settings, Bot, ChevronLeft, Plus, Circle,
-  UserPlus, Heart,
+  UserPlus, Heart, BarChart3,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -18,6 +18,7 @@ const navItems = [
   { title: "Events", url: "/dashboard/events", icon: Zap },
   { title: "Moderation", url: "/dashboard/moderation", icon: Shield },
   { title: "Automations", url: "/dashboard/automations", icon: RefreshCw },
+  { title: "Analytics", url: "/dashboard/analytics", icon: BarChart3 },
   { title: "Logs", url: "/dashboard/logs", icon: ScrollText },
   { title: "Settings", url: "/dashboard/settings", icon: Settings },
 ];
