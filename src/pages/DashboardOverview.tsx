@@ -1,5 +1,5 @@
 import { StatCard } from "@/components/StatCard";
-import { Users, Terminal, Server, Activity, Circle, Play, Square, RotateCcw, HelpCircle, ExternalLink, Bot as BotIcon, Image, Type, BookOpen } from "lucide-react";
+import { Users, Terminal, Server, Activity, Circle, Play, Square, RotateCcw, ExternalLink, Bot as BotIcon, BookOpen, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useBot } from "@/hooks/useBot";
 import { useAuth } from "@/hooks/useAuth";
@@ -21,30 +21,27 @@ export default function DashboardOverview() {
     supabase.from("bot_logs").select("*").eq("bot_id", selectedBot.id).order("created_at", { ascending: false }).limit(5).then(({ data }) => setRecentLogs(data || []));
   }, [selectedBot, user]);
 
-  const updateBotStatus = async (status: "online" | "offline") => {
-    if (!selectedBot) return;
-    setBotAction(status === "online" ? "starting" : "stopping");
-    await supabase.from("bots").update({ status }).eq("id", selectedBot.id);
-    if (user && selectedBot) {
-      await supabase.from("bot_logs").insert({ bot_id: selectedBot.id, user_id: user.id, level: "info", source: "dashboard", message: `Bot ${status === "online" ? "started" : "stopped"} by user` });
-    }
-    toast.success(`Bot ${status === "online" ? "started" : "stopped"}!`);
-    refetch();
-    setBotAction(null);
-  };
+  const manageBotAction = async (action: "start" | "stop" | "restart") => {
+    if (!selectedBot || !user) return;
+    setBotAction(action === "start" ? "starting" : action === "stop" ? "stopping" : "restarting");
+    try {
+      const { data, error } = await supabase.functions.invoke("manage-bot", {
+        body: { bot_id: selectedBot.id, action },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
-  const restartBot = async () => {
-    if (!selectedBot) return;
-    setBotAction("restarting");
-    await supabase.from("bots").update({ status: "offline" }).eq("id", selectedBot.id);
-    await new Promise((r) => setTimeout(r, 1000));
-    await supabase.from("bots").update({ status: "online" }).eq("id", selectedBot.id);
-    if (user && selectedBot) {
-      await supabase.from("bot_logs").insert({ bot_id: selectedBot.id, user_id: user.id, level: "info", source: "dashboard", message: "Bot restarted by user" });
+      await supabase.from("bot_logs").insert({
+        bot_id: selectedBot.id, user_id: user.id, level: "info", source: "dashboard",
+        message: `Bot ${action === "start" ? "started" : action === "stop" ? "stopped" : "restarted"} — slash commands ${action !== "stop" ? "synced with Discord" : "unchanged"}`,
+      });
+      toast.success(`Bot ${action === "start" ? "started" : action === "stop" ? "stopped" : "restarted"}!`);
+      refetch();
+    } catch (err: any) {
+      toast.error(err.message || `Failed to ${action} bot`);
+    } finally {
+      setBotAction(null);
     }
-    toast.success("Bot restarted!");
-    refetch();
-    setBotAction(null);
   };
 
   const isOnline = selectedBot?.status === "online";
@@ -73,42 +70,49 @@ export default function DashboardOverview() {
               <BotIcon className="w-4 h-4 text-primary" /> Bot Controls
             </h2>
             <div className="flex flex-col items-center py-4">
-              <div className={cn("w-16 h-16 rounded-full flex items-center justify-center mb-3 transition-all", isOnline ? "bg-success/10 glow-primary" : "bg-secondary")}>
-                <Circle className={cn("w-6 h-6 fill-current", isOnline ? "text-success animate-pulse-glow" : "text-muted-foreground")} />
+              <div className={cn("w-16 h-16 rounded-full flex items-center justify-center mb-3 transition-all overflow-hidden", isOnline ? "bg-success/10 glow-primary" : "bg-secondary")}>
+                {selectedBot.bot_avatar ? (
+                  <img src={selectedBot.bot_avatar} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <Circle className={cn("w-6 h-6 fill-current", isOnline ? "text-success animate-pulse" : "text-muted-foreground")} />
+                )}
               </div>
               <p className="font-medium text-card-foreground">{selectedBot.bot_name}</p>
-              <p className={cn("text-xs mt-1 capitalize", isOnline ? "text-success" : "text-muted-foreground")}>{botAction || selectedBot.status}</p>
+              <div className="flex items-center gap-1.5 mt-1">
+                <div className={cn("w-2 h-2 rounded-full", isOnline ? "bg-success" : "bg-muted-foreground")} />
+                <p className={cn("text-xs capitalize", isOnline ? "text-success" : "text-muted-foreground")}>{botAction || selectedBot.status}</p>
+              </div>
               
               <div className="flex items-center gap-2 mt-4 w-full">
                 {isOnline ? (
-                  <button onClick={() => updateBotStatus("offline")} disabled={!!botAction} className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-destructive/10 text-destructive text-sm hover:bg-destructive/20 transition-colors disabled:opacity-50">
-                    <Square className="w-3.5 h-3.5" /> Stop
+                  <button onClick={() => manageBotAction("stop")} disabled={!!botAction} className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-destructive/10 text-destructive text-sm hover:bg-destructive/20 transition-colors disabled:opacity-50">
+                    {botAction === "stopping" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Square className="w-3.5 h-3.5" />} Stop
                   </button>
                 ) : (
-                  <button onClick={() => updateBotStatus("online")} disabled={!!botAction} className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-success/10 text-success text-sm hover:bg-success/20 transition-colors disabled:opacity-50">
-                    <Play className="w-3.5 h-3.5" /> Start
+                  <button onClick={() => manageBotAction("start")} disabled={!!botAction} className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-success/10 text-success text-sm hover:bg-success/20 transition-colors disabled:opacity-50">
+                    {botAction === "starting" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />} Start
                   </button>
                 )}
-                <button onClick={restartBot} disabled={!!botAction} className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-secondary text-secondary-foreground text-sm hover:bg-accent transition-colors disabled:opacity-50">
-                  <RotateCcw className="w-3.5 h-3.5" /> Restart
+                <button onClick={() => manageBotAction("restart")} disabled={!!botAction} className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-secondary text-secondary-foreground text-sm hover:bg-accent transition-colors disabled:opacity-50">
+                  {botAction === "restarting" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Restart
                 </button>
               </div>
-              <p className="text-[10px] text-muted-foreground text-center mt-3">Your bot runs 24/7 for free while it's started</p>
+              <p className="text-[10px] text-muted-foreground text-center mt-3">Starting your bot registers slash commands with Discord and sets it online 24/7</p>
             </div>
           </motion.div>
 
           {/* Quick Start Guide */}
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="lg:col-span-2 rounded-lg border border-border bg-card p-5">
             <h2 className="text-sm font-medium text-card-foreground mb-4 flex items-center gap-2">
-              <BookOpen className="w-4 h-4 text-primary" /> Getting Started
+              <BookOpen className="w-4 h-4 text-primary" /> How It Works
             </h2>
             <div className="space-y-3">
               {[
-                { step: "1", title: "Add your bot to a server", desc: "Go to the Discord Developer Portal → OAuth2 → URL Generator. Select 'bot' and 'applications.commands' scopes, pick permissions, then use the generated URL to invite your bot.", link: "https://discord.com/developers/applications" },
-                { step: "2", title: "Change bot name & avatar", desc: "In the Developer Portal, click your application → Bot tab. Here you can change the username and upload a profile picture." },
-                { step: "3", title: "Create commands", desc: "Go to Commands in the sidebar and click 'New Command'. Use the visual builder to add reply blocks, conditions, and more." },
-                { step: "4", title: "Set up welcome messages", desc: "Go to Welcome page to configure join/leave messages. Choose a channel and customize the message with variables." },
-                { step: "5", title: "Start your bot", desc: "Click the Start button above to bring your bot online. It runs 24/7 for free!" },
+                { step: "1", title: "Add your bot to a server", desc: "Go to Discord Developer Portal → OAuth2 → URL Generator. Select 'bot' + 'applications.commands', pick permissions, then invite.", link: "https://discord.com/developers/applications" },
+                { step: "2", title: "Customize your bot", desc: "Go to Settings in the sidebar to change your bot's name and avatar. For banner, use the Discord Developer Portal." },
+                { step: "3", title: "Create commands", desc: "Go to Commands → New Command. Use the visual builder to chain actions like replies, role assignments, conditions, and more." },
+                { step: "4", title: "Configure modules", desc: "Set up Welcome messages, Reaction Roles, Moderation, and Automations from the sidebar." },
+                { step: "5", title: "Start your bot", desc: "Click Start to sync commands with Discord and bring your bot online. It runs 24/7 for free!" },
               ].map((item) => (
                 <div key={item.step} className="flex items-start gap-3">
                   <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-xs font-bold text-primary">{item.step}</div>
@@ -153,8 +157,8 @@ export default function DashboardOverview() {
           <div className="space-y-2">
             {[
               { label: "Discord Developer Portal", url: "https://discord.com/developers/applications", desc: "Manage your bot application" },
-              { label: "Discord Permissions Calculator", url: "https://discordapi.com/permissions.html", desc: "Generate permission integers" },
-              { label: "Cron Expression Generator", url: "https://crontab.guru/", desc: "Build cron schedules for automations" },
+              { label: "Bot Invite Generator", url: "https://discordapi.com/permissions.html", desc: "Generate invite links with permissions" },
+              { label: "Discord API Docs", url: "https://discord.com/developers/docs", desc: "Official API documentation" },
             ].map((link) => (
               <a key={link.url} href={link.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-2.5 rounded-md hover:bg-secondary/50 transition-colors group">
                 <div>
