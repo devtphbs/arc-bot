@@ -16,6 +16,7 @@ import DashboardEvents from "./pages/DashboardEvents";
 import DashboardModeration from "./pages/DashboardModeration";
 import DashboardAutomations from "./pages/DashboardAutomations";
 import DashboardLogs from "./pages/DashboardLogs";
+import DashboardAnalytics from "./pages/DashboardAnalytics";
 import DashboardSettings from "./pages/DashboardSettings";
 import DashboardWelcome from "./pages/DashboardWelcome";
 import DashboardReactionRoles from "./pages/DashboardReactionRoles";
@@ -41,6 +42,7 @@ const App = () => (
                 <Route path="events" element={<DashboardEvents />} />
                 <Route path="moderation" element={<DashboardModeration />} />
                 <Route path="automations" element={<DashboardAutomations />} />
+                <Route path="analytics" element={<DashboardAnalytics />} />
                 <Route path="logs" element={<DashboardLogs />} />
                 <Route path="settings" element={<DashboardSettings />} />
               </Route>
