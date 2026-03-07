@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS bot_modules_bot_id_module_name_key ON public.bot_modules (bot_id, module_name);
