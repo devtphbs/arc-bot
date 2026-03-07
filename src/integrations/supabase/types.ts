@@ -250,6 +250,65 @@ export type Database = {
           },
         ]
       }
+      leveling_config: {
+        Row: {
+          bot_id: string
+          created_at: string
+          enabled: boolean
+          id: string
+          ignored_channels: Json | null
+          ignored_roles: Json | null
+          level_up_channel: string | null
+          level_up_message: string | null
+          multipliers: Json | null
+          role_rewards: Json | null
+          updated_at: string
+          user_id: string
+          xp_cooldown: number
+          xp_per_message: number
+        }
+        Insert: {
+          bot_id: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          ignored_channels?: Json | null
+          ignored_roles?: Json | null
+          level_up_channel?: string | null
+          level_up_message?: string | null
+          multipliers?: Json | null
+          role_rewards?: Json | null
+          updated_at?: string
+          user_id: string
+          xp_cooldown?: number
+          xp_per_message?: number
+        }
+        Update: {
+          bot_id?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          ignored_channels?: Json | null
+          ignored_roles?: Json | null
+          level_up_channel?: string | null
+          level_up_message?: string | null
+          multipliers?: Json | null
+          role_rewards?: Json | null
+          updated_at?: string
+          user_id?: string
+          xp_cooldown?: number
+          xp_per_message?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leveling_config_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: true
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -282,6 +341,97 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      saved_embeds: {
+        Row: {
+          bot_id: string
+          created_at: string
+          embed_data: Json
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bot_id: string
+          created_at?: string
+          embed_data?: Json
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bot_id?: string
+          created_at?: string
+          embed_data?: Json
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_embeds_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_config: {
+        Row: {
+          bot_id: string
+          category_id: string | null
+          created_at: string
+          enabled: boolean
+          id: string
+          log_channel_id: string | null
+          max_tickets_per_user: number
+          support_role_id: string | null
+          ticket_categories: Json | null
+          updated_at: string
+          user_id: string
+          welcome_message: string | null
+        }
+        Insert: {
+          bot_id: string
+          category_id?: string | null
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          log_channel_id?: string | null
+          max_tickets_per_user?: number
+          support_role_id?: string | null
+          ticket_categories?: Json | null
+          updated_at?: string
+          user_id: string
+          welcome_message?: string | null
+        }
+        Update: {
+          bot_id?: string
+          category_id?: string | null
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          log_channel_id?: string | null
+          max_tickets_per_user?: number
+          support_role_id?: string | null
+          ticket_categories?: Json | null
+          updated_at?: string
+          user_id?: string
+          welcome_message?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_config_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: true
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
