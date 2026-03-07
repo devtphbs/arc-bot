@@ -1,9 +1,24 @@
 import { motion } from "framer-motion";
-import { Key, Globe, Image, Type, Trash2, Upload, Loader2, ExternalLink } from "lucide-react";
+import { Key, Globe, Image, Type, Trash2, Upload, Loader2, ExternalLink, Gamepad2, MessageCircle } from "lucide-react";
 import { useBot } from "@/hooks/useBot";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
+
+const statusTypes = [
+  { value: "online", label: "Online", color: "bg-green-500" },
+  { value: "idle", label: "Idle", color: "bg-yellow-500" },
+  { value: "dnd", label: "Do Not Disturb", color: "bg-destructive" },
+  { value: "invisible", label: "Invisible", color: "bg-muted-foreground" },
+];
+
+const activityTypes = [
+  { value: "0", label: "Playing" },
+  { value: "1", label: "Streaming" },
+  { value: "2", label: "Listening to" },
+  { value: "3", label: "Watching" },
+  { value: "5", label: "Competing in" },
+];
 
 export default function DashboardSettings() {
   const { selectedBot, refetch } = useBot();
@@ -11,6 +26,9 @@ export default function DashboardSettings() {
   const [botName, setBotName] = useState(selectedBot?.bot_name || "");
   const [updatingName, setUpdatingName] = useState(false);
   const [updatingAvatar, setUpdatingAvatar] = useState(false);
+  const [customStatus, setCustomStatus] = useState("");
+  const [activityType, setActivityType] = useState("0");
+  const [presenceStatus, setPresenceStatus] = useState("online");
 
   useEffect(() => {
     if (selectedBot) {
@@ -76,6 +94,20 @@ export default function DashboardSettings() {
     input.click();
   };
 
+  const updateCustomStatus = async () => {
+    if (!selectedBot) return;
+    try {
+      const { data, error } = await supabase.functions.invoke("manage-bot", {
+        body: { bot_id: selectedBot.id, action: "update_status", status_text: customStatus, activity_type: parseInt(activityType), presence_status: presenceStatus },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success("Bot status updated!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update status");
+    }
+  };
+
   const disconnectBot = async () => {
     if (!selectedBot) return;
     if (!confirm("Are you sure? This will delete all commands and data for this bot.")) return;
@@ -112,11 +144,11 @@ export default function DashboardSettings() {
                 <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Bot Username</label>
                 <div className="flex gap-2">
                   <input type="text" value={botName} onChange={(e) => setBotName(e.target.value)} className="flex-1 px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
-                  <button onClick={updateBotName} disabled={updatingName || botName === selectedBot.bot_name} className="px-4 py-2.5 rounded-md bg-gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
+                  <button onClick={updateBotName} disabled={updatingName || botName === selectedBot.bot_name} className="px-4 py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
                     {updatingName ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
                   </button>
                 </div>
-                <p className="text-[10px] text-muted-foreground mt-1.5">Changes the bot's username on Discord. Limited to 2 changes per hour.</p>
+                <p className="text-[10px] text-muted-foreground mt-1.5">Changes the bot's username on Discord. Limited to 2 changes per hour by Discord.</p>
               </div>
             </div>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
@@ -125,8 +157,40 @@ export default function DashboardSettings() {
             </p>
           </motion.div>
 
-          {/* Bot Token */}
+          {/* Custom Status */}
           <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="rounded-lg border border-border bg-card p-5">
+            <div className="flex items-center gap-3 mb-4"><Gamepad2 className="w-4 h-4 text-primary" /><h2 className="text-sm font-medium text-card-foreground">Custom Status</h2></div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Presence</label>
+                <div className="flex gap-2">
+                  {statusTypes.map((s) => (
+                    <button key={s.value} onClick={() => setPresenceStatus(s.value)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs transition-colors ${presenceStatus === s.value ? "bg-primary/10 text-primary border border-primary/30" : "bg-secondary text-secondary-foreground border border-transparent"}`}>
+                      <div className={`w-2 h-2 rounded-full ${s.color}`} />
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Activity Type</label>
+                <select value={activityType} onChange={(e) => setActivityType(e.target.value)} className="w-full px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring">
+                  {activityTypes.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Status Text</label>
+                <div className="flex gap-2">
+                  <input type="text" value={customStatus} onChange={(e) => setCustomStatus(e.target.value)} placeholder="e.g. with 1,000 users" className="flex-1 px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+                  <button onClick={updateCustomStatus} disabled={!customStatus.trim()} className="px-4 py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50">Save</button>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1.5">Variables: <code className="font-mono text-primary">{'{guilds}'}</code> <code className="font-mono text-primary">{'{members}'}</code> <code className="font-mono text-primary">{'{commands}'}</code></p>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Bot Token */}
+          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="rounded-lg border border-border bg-card p-5">
             <div className="flex items-center gap-3 mb-4"><Key className="w-4 h-4 text-primary" /><h2 className="text-sm font-medium text-card-foreground">Bot Token</h2></div>
             <div className="flex gap-3">
               <input type="password" value="••••••••••••••••••••••••••••" readOnly className="flex-1 px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground font-mono focus:outline-none" />
@@ -136,17 +200,17 @@ export default function DashboardSettings() {
           </motion.div>
 
           {/* Bot Prefix */}
-          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="rounded-lg border border-border bg-card p-5">
-            <div className="flex items-center gap-3 mb-4"><Globe className="w-4 h-4 text-primary" /><h2 className="text-sm font-medium text-card-foreground">Bot Prefix</h2></div>
+          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="rounded-lg border border-border bg-card p-5">
+            <div className="flex items-center gap-3 mb-4"><MessageCircle className="w-4 h-4 text-primary" /><h2 className="text-sm font-medium text-card-foreground">Bot Prefix</h2></div>
             <div className="flex gap-3">
               <input type="text" value={prefix} onChange={(e) => setPrefix(e.target.value)} className="w-32 px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-ring" />
-              <button onClick={updatePrefix} className="px-4 py-2.5 rounded-md bg-gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">Save</button>
+              <button onClick={updatePrefix} className="px-4 py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">Save</button>
             </div>
             <p className="text-xs text-muted-foreground mt-2">Used for prefix-based commands like <code className="font-mono text-primary">!help</code></p>
           </motion.div>
 
           {/* Danger Zone */}
-          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="rounded-lg border border-destructive/30 bg-card p-5">
+          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="rounded-lg border border-destructive/30 bg-card p-5">
             <h2 className="text-sm font-medium text-destructive mb-2">Danger Zone</h2>
             <p className="text-xs text-muted-foreground mb-3">Permanently disconnect this bot and delete all associated data including commands, modules, and logs.</p>
             <button onClick={disconnectBot} className="px-4 py-2 rounded-md bg-destructive text-destructive-foreground text-sm hover:opacity-90 transition-opacity">Disconnect Bot</button>
