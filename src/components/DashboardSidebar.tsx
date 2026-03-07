@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Terminal, Zap, Shield, RefreshCw, ScrollText, Settings, Bot, ChevronLeft, Plus, Circle,
-  UserPlus, Heart, BarChart3,
+  UserPlus, Heart, BarChart3, Trophy, Ticket, Palette,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -13,8 +13,11 @@ import { ConnectBotModal } from "./ConnectBotModal";
 const navItems = [
   { title: "Overview", url: "/dashboard", icon: LayoutDashboard },
   { title: "Commands", url: "/dashboard/commands", icon: Terminal },
+  { title: "Embed Builder", url: "/dashboard/embeds", icon: Palette },
   { title: "Welcome", url: "/dashboard/welcome", icon: UserPlus },
   { title: "Reaction Roles", url: "/dashboard/reaction-roles", icon: Heart },
+  { title: "Leveling & XP", url: "/dashboard/leveling", icon: Trophy },
+  { title: "Tickets", url: "/dashboard/tickets", icon: Ticket },
   { title: "Events", url: "/dashboard/events", icon: Zap },
   { title: "Moderation", url: "/dashboard/moderation", icon: Shield },
   { title: "Automations", url: "/dashboard/automations", icon: RefreshCw },

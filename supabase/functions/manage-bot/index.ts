@@ -104,8 +104,24 @@ Deno.serve(async (req) => {
           }
         }
 
-        await adminClient.from("bots").update({ status: "online" }).eq("id", bot_id);
-        return new Response(JSON.stringify({ success: true, status: "online" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        // Connect to Discord Gateway to bring bot online with presence
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+        const gatewayRes = await fetch(`${supabaseUrl}/functions/v1/discord-gateway`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: authHeader!,
+          },
+          body: JSON.stringify({ bot_id }),
+        });
+        const gatewayResult = await gatewayRes.json();
+
+        if (!gatewayResult.success) {
+          // Still mark as online even if gateway had issues (commands are registered)
+          await adminClient.from("bots").update({ status: "online" }).eq("id", bot_id);
+        }
+
+        return new Response(JSON.stringify({ success: true, status: "online", gateway: gatewayResult }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
       case "stop": {
