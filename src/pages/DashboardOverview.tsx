@@ -1,5 +1,5 @@
 import { StatCard } from "@/components/StatCard";
-import { Users, Terminal, Server, Activity, Circle, Play, Square, RotateCcw, ExternalLink, Bot as BotIcon, BookOpen, Loader2 } from "lucide-react";
+import { Users, Terminal, Server, Activity, Circle, Play, Square, RotateCcw, ExternalLink, Bot as BotIcon, BookOpen, Loader2, Copy, CheckCheck } from "lucide-react";
 import { motion } from "framer-motion";
 import { useBot } from "@/hooks/useBot";
 import { useAuth } from "@/hooks/useAuth";
@@ -14,6 +14,7 @@ export default function DashboardOverview() {
   const [commandCount, setCommandCount] = useState(0);
   const [recentLogs, setRecentLogs] = useState<any[]>([]);
   const [botAction, setBotAction] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!selectedBot || !user) return;
@@ -44,6 +45,15 @@ export default function DashboardOverview() {
     }
   };
 
+  const copyInviteLink = () => {
+    if (!selectedBot?.bot_id) { toast.error("Start your bot first to generate an invite link"); return; }
+    const url = `https://discord.com/oauth2/authorize?client_id=${selectedBot.bot_id}&permissions=8&scope=bot%20applications.commands`;
+    navigator.clipboard.writeText(url);
+    setCopied(true);
+    toast.success("Invite link copied!");
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const isOnline = selectedBot?.status === "online";
 
   return (
@@ -70,17 +80,17 @@ export default function DashboardOverview() {
               <BotIcon className="w-4 h-4 text-primary" /> Bot Controls
             </h2>
             <div className="flex flex-col items-center py-4">
-              <div className={cn("w-16 h-16 rounded-full flex items-center justify-center mb-3 transition-all overflow-hidden", isOnline ? "bg-success/10 glow-primary" : "bg-secondary")}>
+              <div className={cn("w-16 h-16 rounded-full flex items-center justify-center mb-3 transition-all overflow-hidden", isOnline ? "bg-primary/10 ring-2 ring-primary/30" : "bg-secondary")}>
                 {selectedBot.bot_avatar ? (
                   <img src={selectedBot.bot_avatar} alt="" className="w-full h-full object-cover" />
                 ) : (
-                  <Circle className={cn("w-6 h-6 fill-current", isOnline ? "text-success animate-pulse" : "text-muted-foreground")} />
+                  <Circle className={cn("w-6 h-6 fill-current", isOnline ? "text-primary animate-pulse" : "text-muted-foreground")} />
                 )}
               </div>
               <p className="font-medium text-card-foreground">{selectedBot.bot_name}</p>
               <div className="flex items-center gap-1.5 mt-1">
-                <div className={cn("w-2 h-2 rounded-full", isOnline ? "bg-success" : "bg-muted-foreground")} />
-                <p className={cn("text-xs capitalize", isOnline ? "text-success" : "text-muted-foreground")}>{botAction || selectedBot.status}</p>
+                <div className={cn("w-2 h-2 rounded-full", isOnline ? "bg-primary" : "bg-muted-foreground")} />
+                <p className={cn("text-xs capitalize", isOnline ? "text-primary" : "text-muted-foreground")}>{botAction || selectedBot.status}</p>
               </div>
               
               <div className="flex items-center gap-2 mt-4 w-full">
@@ -89,7 +99,7 @@ export default function DashboardOverview() {
                     {botAction === "stopping" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Square className="w-3.5 h-3.5" />} Stop
                   </button>
                 ) : (
-                  <button onClick={() => manageBotAction("start")} disabled={!!botAction} className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-success/10 text-success text-sm hover:bg-success/20 transition-colors disabled:opacity-50">
+                  <button onClick={() => manageBotAction("start")} disabled={!!botAction} className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-primary/10 text-primary text-sm hover:bg-primary/20 transition-colors disabled:opacity-50">
                     {botAction === "starting" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />} Start
                   </button>
                 )}
@@ -97,6 +107,14 @@ export default function DashboardOverview() {
                   {botAction === "restarting" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Restart
                 </button>
               </div>
+
+              {selectedBot.bot_id && (
+                <button onClick={copyInviteLink} className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-secondary text-secondary-foreground text-sm hover:bg-accent transition-colors">
+                  {copied ? <CheckCheck className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copied ? "Copied!" : "Copy Invite Link"}
+                </button>
+              )}
+
               <p className="text-[10px] text-muted-foreground text-center mt-3">Starting your bot registers slash commands with Discord and sets it online 24/7</p>
             </div>
           </motion.div>
@@ -108,11 +126,11 @@ export default function DashboardOverview() {
             </h2>
             <div className="space-y-3">
               {[
-                { step: "1", title: "Add your bot to a server", desc: "Go to Discord Developer Portal → OAuth2 → URL Generator. Select 'bot' + 'applications.commands', pick permissions, then invite.", link: "https://discord.com/developers/applications" },
-                { step: "2", title: "Customize your bot", desc: "Go to Settings in the sidebar to change your bot's name and avatar. For banner, use the Discord Developer Portal." },
-                { step: "3", title: "Create commands", desc: "Go to Commands → New Command. Use the visual builder to chain actions like replies, role assignments, conditions, and more." },
-                { step: "4", title: "Configure modules", desc: "Set up Welcome messages, Reaction Roles, Moderation, and Automations from the sidebar." },
-                { step: "5", title: "Start your bot", desc: "Click Start to sync commands with Discord and bring your bot online. It runs 24/7 for free!" },
+                { step: "1", title: "Create a bot on Discord", desc: "Go to the Discord Developer Portal → New Application → Bot tab → Create Bot → Copy the token.", link: "https://discord.com/developers/applications" },
+                { step: "2", title: "Connect your bot here", desc: "Click 'Add Bot' in the sidebar, paste your bot token. We validate it securely and never expose it." },
+                { step: "3", title: "Invite bot to your server", desc: "Click 'Copy Invite Link' above (or use the Developer Portal OAuth2 URL Generator with bot + applications.commands scopes)." },
+                { step: "4", title: "Create commands & modules", desc: "Use Commands to build slash commands with the visual builder. Set up Welcome, Reaction Roles, Moderation & more." },
+                { step: "5", title: "Start your bot", desc: "Click Start — your commands get synced to Discord and the bot goes online 24/7. Free forever!" },
               ].map((item) => (
                 <div key={item.step} className="flex items-start gap-3">
                   <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-xs font-bold text-primary">{item.step}</div>
@@ -142,7 +160,7 @@ export default function DashboardOverview() {
               {recentLogs.map((log) => (
                 <div key={log.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                   <div className="flex items-center gap-3">
-                    <div className={cn("w-1.5 h-1.5 rounded-full", log.level === "error" ? "bg-destructive" : log.level === "warn" ? "bg-warning" : "bg-primary")} />
+                    <div className={cn("w-1.5 h-1.5 rounded-full", log.level === "error" ? "bg-destructive" : log.level === "warn" ? "bg-accent" : "bg-primary")} />
                     <span className="text-sm text-card-foreground">{log.message}</span>
                   </div>
                   <span className="text-xs text-muted-foreground">{new Date(log.created_at).toLocaleTimeString()}</span>

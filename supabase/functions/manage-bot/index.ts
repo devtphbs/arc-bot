@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } }
     );
 
@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const { bot_id, action, name, avatar } = await req.json();
+    const { bot_id, action, name, avatar, status_text, activity_type, presence_status } = await req.json();
 
     if (!bot_id || !action) {
       return new Response(JSON.stringify({ error: "bot_id and action required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -132,6 +132,19 @@ Deno.serve(async (req) => {
         }
         await adminClient.from("bots").update({ status: "online" }).eq("id", bot_id);
         return new Response(JSON.stringify({ success: true, status: "online" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      case "update_status": {
+        // Note: Gateway-based presence requires a WebSocket connection.
+        // We store the desired status config so the bot gateway can use it.
+        await adminClient.from("bot_modules").upsert({
+          bot_id,
+          user_id: user.id,
+          module_name: "custom_status",
+          enabled: true,
+          config: { status_text, activity_type: activity_type || 0, presence_status: presence_status || "online" },
+        }, { onConflict: "bot_id,module_name" });
+        return new Response(JSON.stringify({ success: true }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
       default:
