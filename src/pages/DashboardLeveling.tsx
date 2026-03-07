@@ -40,7 +40,7 @@ export default function DashboardLeveling() {
           setXpPerMessage(data.xp_per_message);
           setXpCooldown(data.xp_cooldown);
           setLevelUpMessage(data.level_up_message || "");
-          setRoleRewards((data.role_rewards as RoleReward[]) || []);
+          setRoleRewards((data.role_rewards as unknown as RoleReward[]) || []);
         }
         setLoading(false);
       });

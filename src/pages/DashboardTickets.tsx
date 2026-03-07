@@ -46,7 +46,7 @@ export default function DashboardTickets() {
           setMaxTickets(data.max_tickets_per_user);
           setSupportRoleId(data.support_role_id || "");
           setLogChannelId(data.log_channel_id || "");
-          setCategories((data.ticket_categories as TicketCategory[]) || []);
+          setCategories((data.ticket_categories as unknown as TicketCategory[]) || []);
         }
         setLoading(false);
       });
