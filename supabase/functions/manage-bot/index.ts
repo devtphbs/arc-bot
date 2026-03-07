@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const { bot_id, action, name, avatar } = await req.json();
+    const { bot_id, action, name, avatar, status_text, activity_type, presence_status } = await req.json();
 
     if (!bot_id || !action) {
       return new Response(JSON.stringify({ error: "bot_id and action required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
