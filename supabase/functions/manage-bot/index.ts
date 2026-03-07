@@ -134,6 +134,19 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ success: true, status: "online" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
+      case "update_status": {
+        // Note: Gateway-based presence requires a WebSocket connection.
+        // We store the desired status config so the bot gateway can use it.
+        await adminClient.from("bot_modules").upsert({
+          bot_id,
+          user_id: user.id,
+          module_name: "custom_status",
+          enabled: true,
+          config: { status_text, activity_type: activity_type || 0, presence_status: presence_status || "online" },
+        }, { onConflict: "bot_id,module_name" });
+        return new Response(JSON.stringify({ success: true }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
       default:
         return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
