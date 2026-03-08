@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Ticket, Plus, Trash2, Loader2, MessageSquarePlus } from "lucide-react";
+import { Ticket, Plus, Trash2, Loader2, MessageSquarePlus, Send, FolderOpen } from "lucide-react";
 import { useBot } from "@/hooks/useBot";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,11 +17,14 @@ export default function DashboardTickets() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [enabled, setEnabled] = useState(true);
+  const [deploying, setDeploying] = useState(false);
+  const [enabled, setEnabled] = useState(false);
   const [welcomeMessage, setWelcomeMessage] = useState("Thank you for creating a ticket! Support will be with you shortly.");
   const [maxTickets, setMaxTickets] = useState(3);
   const [supportRoleId, setSupportRoleId] = useState("");
   const [logChannelId, setLogChannelId] = useState("");
+  const [panelChannelId, setPanelChannelId] = useState("");
+  const [ticketCategoryId, setTicketCategoryId] = useState("");
   const [categories, setCategories] = useState<TicketCategory[]>([
     { name: "General Support", emoji: "🎫", description: "General questions and help" },
     { name: "Bug Report", emoji: "🐛", description: "Report a bug" },
@@ -46,7 +49,12 @@ export default function DashboardTickets() {
           setMaxTickets(data.max_tickets_per_user);
           setSupportRoleId(data.support_role_id || "");
           setLogChannelId(data.log_channel_id || "");
+          setTicketCategoryId(data.category_id || "");
           setCategories((data.ticket_categories as unknown as TicketCategory[]) || []);
+          // panel_channel_id stored in ticket_categories config or separate
+          // We'll store panelChannelId in the config JSON
+          const configAny = data as any;
+          setPanelChannelId(configAny.panel_channel_id || "");
         }
         setLoading(false);
       });
@@ -56,7 +64,7 @@ export default function DashboardTickets() {
     if (!selectedBot || !user) return;
     setSaving(true);
     try {
-      const payload = {
+      const payload: any = {
         bot_id: selectedBot.id,
         user_id: user.id,
         enabled,
@@ -64,6 +72,7 @@ export default function DashboardTickets() {
         max_tickets_per_user: maxTickets,
         support_role_id: supportRoleId || null,
         log_channel_id: logChannelId || null,
+        category_id: ticketCategoryId || null,
         ticket_categories: categories as any,
       };
       const { data: existing } = await supabase.from("ticket_config").select("id").eq("bot_id", selectedBot.id).maybeSingle();
@@ -77,6 +86,30 @@ export default function DashboardTickets() {
       toast.error(err.message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const deployPanel = async () => {
+    if (!selectedBot || !panelChannelId) {
+      toast.error("Please enter a Panel Channel ID first");
+      return;
+    }
+    setDeploying(true);
+    try {
+      const { error } = await supabase.functions.invoke("discord-interactions", {
+        body: {
+          action: "deploy_ticket_panel",
+          bot_id: selectedBot.id,
+          channel_id: panelChannelId,
+          categories,
+        },
+      });
+      if (error) throw error;
+      toast.success("Ticket panel deployed to channel!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to deploy panel");
+    } finally {
+      setDeploying(false);
     }
   };
 
@@ -94,18 +127,31 @@ export default function DashboardTickets() {
     <div className="p-6 lg:p-8 max-w-3xl">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
         <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2"><Ticket className="w-6 h-6 text-primary" /> Ticket System</h1>
-        <p className="text-sm text-muted-foreground mt-1">Let members create support tickets managed by your bot</p>
+        <p className="text-sm text-muted-foreground mt-1">Let members create support tickets via interactive buttons</p>
       </motion.div>
 
       {loading ? (
         <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
       ) : (
         <div className="space-y-6 mt-8">
+          {/* How it works */}
+          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="rounded-lg border border-border bg-card p-4">
+            <h3 className="text-xs text-muted-foreground uppercase tracking-wider mb-2">How Tickets Work</h3>
+            <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
+              <li>The bot sends a <strong className="text-primary">ticket panel</strong> with category buttons to your chosen channel</li>
+              <li>Members click a button to open a new ticket channel (named <code className="text-primary font-mono">ticket-0001</code>, <code className="text-primary font-mono">ticket-0002</code>, etc.)</li>
+              <li>Ticket channels are created inside a <strong className="text-primary">Discord category</strong> you specify</li>
+              <li>Only the member + support role can see each ticket channel</li>
+              <li>Use <code className="text-primary font-mono">/ticket close</code> to close a ticket</li>
+            </ul>
+          </motion.div>
+
+          {/* Enable toggle */}
           <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="rounded-lg border border-border bg-card p-5">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-sm font-medium text-card-foreground">Enable Ticket System</h2>
-                <p className="text-xs text-muted-foreground mt-1">Members can create tickets via a panel or slash command</p>
+                <p className="text-xs text-muted-foreground mt-1">Members can create tickets via panel buttons or /ticket open</p>
               </div>
               <button onClick={() => setEnabled(!enabled)} className={`w-12 h-6 rounded-full transition-colors relative ${enabled ? "bg-primary" : "bg-secondary"}`}>
                 <div className={`w-5 h-5 rounded-full bg-background absolute top-0.5 transition-transform ${enabled ? "translate-x-6" : "translate-x-0.5"}`} />
@@ -113,19 +159,42 @@ export default function DashboardTickets() {
             </div>
           </motion.div>
 
-          {/* Settings */}
+          {/* Channel & Category Settings */}
           <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="rounded-lg border border-border bg-card p-5">
+            <div className="flex items-center gap-3 mb-4">
+              <FolderOpen className="w-4 h-4 text-primary" />
+              <h2 className="text-sm font-medium text-card-foreground">Channel & Category</h2>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">📢 Panel Channel ID</label>
+                <input type="text" value={panelChannelId} onChange={(e) => setPanelChannelId(e.target.value)} placeholder="Channel where the ticket panel buttons appear" className="w-full px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+                <p className="text-[10px] text-muted-foreground mt-1">Right-click a channel in Discord → Copy Channel ID</p>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">📁 Ticket Category ID</label>
+                <input type="text" value={ticketCategoryId} onChange={(e) => setTicketCategoryId(e.target.value)} placeholder="Discord category to create ticket channels in" className="w-full px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+                <p className="text-[10px] text-muted-foreground mt-1">Tickets will be created as channels inside this category (e.g. "Tickets" category). Right-click a category → Copy ID</p>
+              </div>
+              <button onClick={deployPanel} disabled={deploying || !panelChannelId} className="flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50">
+                {deploying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Deploy Ticket Panel to Channel
+              </button>
+            </div>
+          </motion.div>
+
+          {/* Settings */}
+          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="rounded-lg border border-border bg-card p-5">
             <div className="flex items-center gap-3 mb-4"><MessageSquarePlus className="w-4 h-4 text-primary" /><h2 className="text-sm font-medium text-card-foreground">Ticket Settings</h2></div>
             <div className="space-y-3">
               <div>
                 <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Welcome Message</label>
                 <textarea value={welcomeMessage} onChange={(e) => setWelcomeMessage(e.target.value)} rows={3} className="w-full px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring" />
-                <p className="text-[10px] text-muted-foreground mt-1">Variables: <code className="font-mono text-primary">{'{user}'}</code> <code className="font-mono text-primary">{'{ticket_id}'}</code> <code className="font-mono text-primary">{'{category}'}</code></p>
+                <p className="text-[10px] text-muted-foreground mt-1">Sent when a ticket is opened. Variables: <code className="font-mono text-primary">{'{user}'}</code> <code className="font-mono text-primary">{'{ticket_id}'}</code> <code className="font-mono text-primary">{'{category}'}</code></p>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Support Role ID</label>
-                  <input type="text" value={supportRoleId} onChange={(e) => setSupportRoleId(e.target.value)} placeholder="Role ID that can see tickets" className="w-full px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+                  <input type="text" value={supportRoleId} onChange={(e) => setSupportRoleId(e.target.value)} placeholder="Role that can see all tickets" className="w-full px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Log Channel ID</label>
@@ -140,8 +209,9 @@ export default function DashboardTickets() {
           </motion.div>
 
           {/* Categories */}
-          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="rounded-lg border border-border bg-card p-5">
+          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="rounded-lg border border-border bg-card p-5">
             <h2 className="text-sm font-medium text-card-foreground mb-4">Ticket Categories</h2>
+            <p className="text-xs text-muted-foreground mb-3">Each category becomes a button on the ticket panel. Members click to open that type of ticket.</p>
             <div className="space-y-2 mb-4">
               {categories.map((cat, i) => (
                 <div key={i} className="flex items-center justify-between py-2 px-3 rounded-md bg-background border border-border">
@@ -174,21 +244,28 @@ export default function DashboardTickets() {
           </motion.div>
 
           {/* Discord Preview */}
-          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="rounded-lg border border-border bg-card p-5">
+          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="rounded-lg border border-border bg-card p-5">
             <h2 className="text-sm font-medium text-card-foreground mb-3">Ticket Panel Preview</h2>
             <div className="rounded-md bg-[#2b2d31] p-4 border border-[#1e1f22]">
-              <div className="border-l-4 border-primary rounded p-3 bg-[#2b2d31]">
-                <p className="text-sm font-semibold text-white mb-1">🎫 Create a Ticket</p>
-                <p className="text-xs text-[#b5bac1]">Select a category below to create a support ticket.</p>
-              </div>
-              <div className="flex flex-wrap gap-2 mt-3">
-                {categories.map((cat, i) => (
-                  <button key={i} className="px-3 py-1.5 rounded bg-[#4e5058] text-white text-xs hover:bg-[#6d6f78] transition-colors">
-                    {cat.emoji} {cat.name}
-                  </button>
-                ))}
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#5865f2] flex items-center justify-center text-white text-xs font-bold shrink-0">BOT</div>
+                <div className="flex-1">
+                  <div className="border-l-4 border-[#5865f2] rounded p-3 bg-[#2f3136]">
+                    <p className="text-sm font-semibold text-white mb-1">🎫 Create a Support Ticket</p>
+                    <p className="text-xs text-[#b5bac1]">Select a category below to open a new ticket.</p>
+                    <p className="text-xs text-[#b5bac1] mt-1">A private channel will be created for you.</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {categories.map((cat, i) => (
+                      <button key={i} className="px-3 py-1.5 rounded bg-[#4e5058] text-white text-xs hover:bg-[#6d6f78] transition-colors">
+                        {cat.emoji} {cat.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
+            <p className="text-[10px] text-muted-foreground mt-2">Tickets will be created as: <code className="font-mono text-primary">ticket-0001</code>, <code className="font-mono text-primary">ticket-0002</code>, etc.</p>
           </motion.div>
 
           <button onClick={save} disabled={saving} className="w-full py-3 rounded-md bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
