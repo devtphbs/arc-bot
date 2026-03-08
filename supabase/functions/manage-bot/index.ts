@@ -151,9 +151,15 @@ async function buildAllSlashCommands(adminClient: any, botDbId: string, bot: any
       name: "giveaway", description: "Manage giveaways", type: 1,
       options: [
         { name: "start", description: "Start a new giveaway", type: 1, options: [
-          { name: "prize", description: "What to give away", type: 3, required: true },
+          { name: "prize", description: "What to give away", type: 3, required: false },
           { name: "duration", description: "Duration (e.g. 1d, 30m, 1mo)", type: 3, required: false },
           { name: "winners", description: "Number of winners", type: 4, required: false },
+          { name: "color", description: "Embed color hex (e.g. #FFD700)", type: 3, required: false },
+          { name: "channel", description: "Channel to post in", type: 7, required: false },
+          { name: "host", description: "User hosting the giveaway", type: 6, required: false },
+          { name: "winner-dm", description: "DM message sent to winners", type: 3, required: false },
+          { name: "required-messages", description: "Min messages to enter", type: 4, required: false },
+          { name: "bypass-role", description: "Role that bypasses requirements", type: 8, required: false },
         ]},
         { name: "end", description: "End a giveaway early", type: 1 },
         { name: "reroll", description: "Reroll the winner", type: 1 },
