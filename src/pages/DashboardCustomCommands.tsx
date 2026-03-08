@@ -139,6 +139,8 @@ export default function DashboardCustomCommands() {
   const [scriptCode, setScriptCode] = useState("");
   const [options, setOptions] = useState<ScriptOption[]>([]);
   const [showScrapeRef, setShowScrapeRef] = useState(false);
+  const [testRunning, setTestRunning] = useState(false);
+  const [testOutput, setTestOutput] = useState<string | null>(null);
 
   const fetchScripts = async () => {
     if (!selectedBot) return;
