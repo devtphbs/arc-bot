@@ -88,6 +88,14 @@ export default function DashboardTickets() {
       } else {
         await supabase.from("ticket_config").insert(payload);
       }
+      // Save allowed roles in bot_modules
+      const modConfig = { allowedRoles } as unknown as import("@/integrations/supabase/types").Json;
+      const { data: existingMod } = await supabase.from("bot_modules").select("id").eq("bot_id", selectedBot.id).eq("module_name", "tickets").maybeSingle();
+      if (existingMod) {
+        await supabase.from("bot_modules").update({ config: modConfig }).eq("id", existingMod.id);
+      } else {
+        await supabase.from("bot_modules").insert({ bot_id: selectedBot.id, user_id: user.id, module_name: "tickets", enabled: true, config: modConfig });
+      }
       toast.success("Ticket config saved!");
     } catch (err: any) {
       toast.error(err.message);
