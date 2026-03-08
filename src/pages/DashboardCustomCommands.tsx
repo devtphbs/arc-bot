@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Code2, Plus, Search, Trash2, ToggleLeft, ToggleRight, Save, X, ChevronDown, ChevronUp, Globe, BookOpen, Copy, Check } from "lucide-react";
+import { Code2, Plus, Search, Trash2, ToggleLeft, ToggleRight, Save, X, ChevronDown, ChevronUp, Globe, BookOpen, Copy, Check, Play, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useBot } from "@/hooks/useBot";
