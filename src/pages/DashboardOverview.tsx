@@ -1,5 +1,5 @@
 import { StatCard } from "@/components/StatCard";
-import { Users, Terminal, Server, Activity, Circle, Play, Square, RotateCcw, ExternalLink, Bot as BotIcon, BookOpen, Loader2, Copy, CheckCheck, AlertTriangle } from "lucide-react";
+import { Users, Terminal, Server, Activity, Circle, Play, Square, RotateCcw, ExternalLink, Bot as BotIcon, BookOpen, Loader2, Copy, CheckCheck, AlertTriangle, UserCheck } from "lucide-react";
 import { motion } from "framer-motion";
 import { useBot } from "@/hooks/useBot";
 import { useAuth } from "@/hooks/useAuth";
@@ -16,29 +16,33 @@ export default function DashboardOverview() {
   const [botAction, setBotAction] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [showStopWarning, setShowStopWarning] = useState(false);
+  const [memberCount, setMemberCount] = useState<number | null>(null);
 
   useEffect(() => {
     if (!selectedBot || !user) return;
     supabase.from("commands").select("id", { count: "exact" }).eq("bot_id", selectedBot.id).then(({ count }) => setCommandCount(count || 0));
     supabase.from("bot_logs").select("*").eq("bot_id", selectedBot.id).order("created_at", { ascending: false }).limit(5).then(({ data }) => setRecentLogs(data || []));
+    
+    // Fetch member count if guild is set
+    if (selectedBot.guild_id) {
+      supabase.functions.invoke("manage-bot", {
+        body: { bot_id: selectedBot.id, action: "fetch_guild_info" },
+      }).then(({ data }) => {
+        if (data?.member_count) setMemberCount(data.member_count);
+      });
+    } else {
+      setMemberCount(null);
+    }
   }, [selectedBot, user]);
 
   const manageBotAction = async (action: "start" | "stop" | "restart") => {
     if (!selectedBot || !user) return;
-
-    // Show stop warning
-    if (action === "stop") {
-      setShowStopWarning(true);
-    }
-
+    if (action === "stop") setShowStopWarning(true);
     setBotAction(action === "start" ? "starting" : action === "stop" ? "stopping" : "restarting");
     try {
-      const { data, error } = await supabase.functions.invoke("manage-bot", {
-        body: { bot_id: selectedBot.id, action },
-      });
+      const { data, error } = await supabase.functions.invoke("manage-bot", { body: { bot_id: selectedBot.id, action } });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-
       await supabase.from("bot_logs").insert({
         bot_id: selectedBot.id, user_id: user.id, level: "info", source: "dashboard",
         message: `Bot ${action === "start" ? "started" : action === "stop" ? "stopped" : "restarted"} — slash commands ${action !== "stop" ? "synced with Discord" : "unchanged"}`,
@@ -73,14 +77,14 @@ export default function DashboardOverview() {
         </p>
       </motion.div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mt-6">
         <StatCard title="Connected Bots" value={bots.length} icon={Server} />
         <StatCard title="Guilds" value={selectedBot?.guild_count || 0} icon={Users} />
         <StatCard title="Commands" value={commandCount} icon={Terminal} />
+        <StatCard title="Members" value={memberCount !== null ? memberCount.toLocaleString() : "—"} icon={UserCheck} />
         <StatCard title="Status" value={selectedBot?.status || "N/A"} icon={Activity} />
       </div>
 
-      {/* Stop Warning Banner */}
       {showStopWarning && (
         <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="mt-4 rounded-lg border border-warning/30 bg-warning/10 p-4 flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
@@ -93,7 +97,6 @@ export default function DashboardOverview() {
 
       {selectedBot && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-          {/* Bot Controls */}
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="rounded-lg border border-border bg-card p-5">
             <h2 className="text-sm font-medium text-card-foreground mb-4 flex items-center gap-2">
               <BotIcon className="w-4 h-4 text-primary" /> Bot Controls
@@ -111,7 +114,6 @@ export default function DashboardOverview() {
                 <div className={cn("w-2 h-2 rounded-full", isOnline ? "bg-primary" : "bg-muted-foreground")} />
                 <p className={cn("text-xs capitalize", isOnline ? "text-primary" : "text-muted-foreground")}>{botAction || selectedBot.status}</p>
               </div>
-              
               <div className="flex items-center gap-2 mt-4 w-full">
                 {isOnline ? (
                   <button onClick={() => manageBotAction("stop")} disabled={!!botAction} className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-destructive/10 text-destructive text-sm hover:bg-destructive/20 transition-colors disabled:opacity-50">
@@ -126,19 +128,16 @@ export default function DashboardOverview() {
                   {botAction === "restarting" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Restart
                 </button>
               </div>
-
               {selectedBot.bot_id && (
                 <button onClick={copyInviteLink} className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-secondary text-secondary-foreground text-sm hover:bg-accent transition-colors">
                   {copied ? <CheckCheck className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                   {copied ? "Copied!" : "Copy Invite Link"}
                 </button>
               )}
-
               <p className="text-[10px] text-muted-foreground text-center mt-3">Starting your bot registers slash commands with Discord and connects it to the Gateway for 24/7 uptime. The keepalive system auto-reconnects every 2 minutes.</p>
             </div>
           </motion.div>
 
-          {/* Quick Start Guide */}
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="lg:col-span-2 rounded-lg border border-border bg-card p-5">
             <h2 className="text-sm font-medium text-card-foreground mb-4 flex items-center gap-2">
               <BookOpen className="w-4 h-4 text-primary" /> How It Works
