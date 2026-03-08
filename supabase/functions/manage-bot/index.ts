@@ -18,7 +18,8 @@ Deno.serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) return json({ error: "Unauthorized" }, 401);
 
-    const { bot_id, action, name, avatar, status_text, activity_type, presence_status } = await req.json();
+    const reqBody = await req.json();
+    const { bot_id, action, name, avatar, status_text, activity_type, presence_status, guild_id: reqGuildId } = reqBody;
     if (!bot_id || !action) return json({ error: "bot_id and action required" }, 400);
 
     const adminClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -115,6 +116,42 @@ Deno.serve(async (req) => {
           config: { status_text, activity_type: activity_type || 0, presence_status: presence_status || "online" },
         }, { onConflict: "bot_id,module_name" });
         return json({ success: true });
+      }
+
+      case "set_guild": {
+        await adminClient.from("bots").update({ guild_id: reqGuildId || null }).eq("id", bot_id);
+        return json({ success: true });
+      }
+
+      case "fetch_guilds": {
+        const res = await fetch("https://discord.com/api/v10/users/@me/guilds", {
+          headers: { Authorization: `Bot ${token}` },
+        });
+        if (!res.ok) return json({ error: "Failed to fetch guilds" });
+        const guilds = await res.json();
+        return json({ guilds });
+      }
+
+      case "fetch_channels": {
+        const targetGuild = bot.guild_id;
+        if (!targetGuild) return json({ error: "No main server set" }, 400);
+        const res = await fetch(`https://discord.com/api/v10/guilds/${targetGuild}/channels`, {
+          headers: { Authorization: `Bot ${token}` },
+        });
+        if (!res.ok) return json({ error: "Failed to fetch channels" });
+        const channels = await res.json();
+        return json({ channels });
+      }
+
+      case "fetch_roles": {
+        const targetGuild2 = bot.guild_id;
+        if (!targetGuild2) return json({ error: "No main server set" }, 400);
+        const res = await fetch(`https://discord.com/api/v10/guilds/${targetGuild2}/roles`, {
+          headers: { Authorization: `Bot ${token}` },
+        });
+        if (!res.ok) return json({ error: "Failed to fetch roles" });
+        const roles = await res.json();
+        return json({ roles });
       }
 
       default:
