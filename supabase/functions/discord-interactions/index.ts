@@ -59,6 +59,9 @@ Deno.serve(async (req) => {
     if (interaction.action === "end_giveaways") {
       return await autoEndGiveaways(adminClient);
     }
+    if (interaction.action === "end_polls") {
+      return await autoEndPolls(adminClient);
+    }
 
     const signature = req.headers.get("x-signature-ed25519");
     const timestamp = req.headers.get("x-signature-timestamp");
@@ -212,6 +215,11 @@ Deno.serve(async (req) => {
       // Giveaway entry button
       if (customId.startsWith("giveaway_enter_")) {
         return await handleGiveawayEntry(interaction, bot, token, adminClient);
+      }
+
+      // Poll vote button
+      if (customId.startsWith("poll_vote_")) {
+        return await handlePollVote(interaction, bot, token, adminClient);
       }
 
       // IMPORTANT: Check ticket_close_ and ticket_claim_ BEFORE ticket_ to avoid creating a new ticket
@@ -638,6 +646,11 @@ async function handleModuleCommand(
     const config = modules.giveaways;
     const giveaways = (config.giveaways as any[]) || [];
 
+    // Check allowed roles for giveaway commands
+    const giveawayAllowedRoles = (config.allowedRoles as string[]) || [];
+    if (giveawayAllowedRoles.length > 0 && !giveawayAllowedRoles.some((r: string) => memberRoles.includes(r))) {
+      return { type: 4, data: { content: "❌ You don't have permission to use giveaway commands.", flags: 64 } };
+    }
     if (subCommand === "start") {
       const getOpt = (name: string) => interaction.data?.options?.[0]?.options?.find((o: any) => o.name === name)?.value;
       const prize = getOpt("prize") || "Amazing Prize";
@@ -839,29 +852,113 @@ async function handleModuleCommand(
 
   // ── Poll Commands ──
   if (commandName === "poll" && modules.polls) {
-    const question = interaction.data?.options?.find((o: any) => o.name === "question")?.value || "No question";
-    const optionsRaw = interaction.data?.options?.find((o: any) => o.name === "options")?.value || "";
-    const opts = optionsRaw.split(",").map((o: string) => o.trim()).filter(Boolean);
-    const emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
-    const description = opts.length > 0 ? opts.map((o: string, i: number) => `${emojis[i] || "▫️"} ${o}`).join("\n") : "👍 Yes\n👎 No";
-    const embed = { title: `📊 ${question}`, description, color: 0x5865f2, footer: { text: `Poll by ${interaction.member?.user?.username || "someone"}` } };
+    const config = modules.polls;
+    const pollTemplates = (config.polls as any[]) || [];
 
-    const msgRes = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
-      method: "POST",
-      headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ embeds: [embed] }),
-    });
-    if (msgRes.ok) {
-      const msg = await msgRes.json();
-      const reactEmojis = opts.length > 0 ? emojis.slice(0, opts.length) : ["👍", "👎"];
-      for (const emoji of reactEmojis) {
-        await fetch(`https://discord.com/api/v10/channels/${channelId}/messages/${msg.id}/reactions/${encodeURIComponent(emoji)}/@me`, {
-          method: "PUT", headers: { Authorization: `Bot ${token}` },
-        });
+    // Check allowed roles
+    if (pollTemplates.length > 0) {
+      const template = pollTemplates[0];
+      const allowedRoles = (template.allowedRoles as string[]) || [];
+      if (allowedRoles.length > 0 && !allowedRoles.some((r: string) => memberRoles.includes(r))) {
+        return { type: 4, data: { content: "❌ You don't have permission to use poll commands.", flags: 64 } };
       }
-      return { type: 4, data: { content: "📊 Poll created!", flags: 64 } };
     }
-    return { type: 4, data: { content: "❌ Failed to create poll.", flags: 64 } };
+
+    if (subCommand === "create" || !subCommand) {
+      const getOpt = (name: string) => {
+        // Handle both flat options and subcommand options
+        const flatOpt = interaction.data?.options?.find((o: any) => o.name === name)?.value;
+        if (flatOpt !== undefined) return flatOpt;
+        const subOpts = interaction.data?.options?.[0]?.options;
+        return subOpts?.find((o: any) => o.name === name)?.value;
+      };
+
+      const question = getOpt("question") || "No question";
+      const optionsRaw = getOpt("options") || "";
+      const durationStr = getOpt("duration") || (pollTemplates[0]?.duration || "1d");
+      const multipleChoice = pollTemplates[0]?.multipleChoice || false;
+
+      const opts = optionsRaw ? String(optionsRaw).split(",").map((o: string) => o.trim()).filter(Boolean) : ["Yes", "No"];
+      const emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
+      const durationSecs = parseDuration(String(durationStr));
+      const endTime = Math.floor(Date.now() / 1000) + durationSecs;
+
+      const description = opts.map((o: string, i: number) => `${emojis[i] || "▫️"} ${o} — **0 votes**`).join("\n");
+      const embed = {
+        title: `📊 ${question}`,
+        description: `${description}\n\n⏰ Ends <t:${endTime}:R>${multipleChoice ? "\n✅ Multiple choices allowed" : ""}`,
+        color: 0x5865f2,
+        footer: { text: `Poll by ${interaction.member?.user?.username || "someone"} • 0 total votes` },
+      };
+
+      // Build vote buttons
+      const components: any[] = [];
+      let currentRow: any = { type: 1, components: [] };
+      const pollId = `${Date.now()}`;
+      opts.forEach((opt: string, i: number) => {
+        if (currentRow.components.length >= 5) {
+          components.push(currentRow);
+          currentRow = { type: 1, components: [] };
+        }
+        currentRow.components.push({
+          type: 2,
+          style: 2,
+          label: `${emojis[i] || "▫️"} ${opt}`,
+          custom_id: `poll_vote_${pollId}_${i}`,
+        });
+      });
+      if (currentRow.components.length > 0) components.push(currentRow);
+
+      const msgRes = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+        method: "POST",
+        headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ embeds: [embed], components }),
+      });
+
+      if (msgRes.ok) {
+        const msg = await msgRes.json();
+        // Store active poll
+        const votes: Record<string, string[]> = {};
+        opts.forEach((_: string, i: number) => { votes[String(i)] = []; });
+        await adminClient.from("active_polls").insert({
+          bot_id: bot.id,
+          message_id: msg.id,
+          channel_id: channelId,
+          guild_id: guildId,
+          question,
+          options: opts,
+          votes,
+          ends_at: new Date(endTime * 1000).toISOString(),
+          multiple_choice: multipleChoice,
+          anonymous: pollTemplates[0]?.anonymous || false,
+        });
+        return { type: 4, data: { content: `📊 Poll created! Ends <t:${endTime}:R>`, flags: 64 } };
+      }
+      return { type: 4, data: { content: "❌ Failed to create poll.", flags: 64 } };
+    }
+
+    if (subCommand === "end") {
+      const { data: activePolls } = await adminClient.from("active_polls").select("*").eq("bot_id", bot.id).eq("channel_id", channelId).eq("ended", false);
+      if (!activePolls?.length) return { type: 4, data: { content: "❌ No active polls in this channel.", flags: 64 } };
+      for (const p of activePolls) {
+        await adminClient.from("active_polls").update({ ends_at: new Date().toISOString() }).eq("id", p.id);
+      }
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      await fetch(`${supabaseUrl}/functions/v1/discord-interactions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "end_polls" }),
+      });
+      return { type: 4, data: { content: `✅ Ending ${activePolls.length} poll(s)... Results will be posted shortly.`, flags: 64 } };
+    }
+
+    if (subCommand === "results") {
+      const { data: recentPoll } = await adminClient.from("active_polls").select("*").eq("bot_id", bot.id).eq("channel_id", channelId).eq("ended", true).order("ends_at", { ascending: false }).limit(1);
+      if (!recentPoll?.length) return { type: 4, data: { content: "❌ No ended polls found in this channel.", flags: 64 } };
+      const p = recentPoll[0];
+      const resultsEmbed = buildPollResultsEmbed(p);
+      return { type: 4, data: { embeds: [resultsEmbed] } };
+    }
   }
 
   // ── Leveling Commands ──
@@ -993,6 +1090,180 @@ async function handleReactionRoleButton(interaction: any, bot: any, token: strin
     }
     return respond({ type: 4, data: { content: `✅ Added <@&${roleId}> to you!`, flags: 64 } });
   }
+}
+
+// ─── Poll Vote Handler ────────────────────────────────────────────
+async function handlePollVote(interaction: any, bot: any, token: string, adminClient: any) {
+  const userId = interaction.member?.user?.id;
+  const messageId = interaction.message?.id;
+  const customId = interaction.data?.custom_id || "";
+  // Format: poll_vote_{pollId}_{optionIndex}
+  const parts = customId.split("_");
+  const optionIndex = parts[parts.length - 1];
+
+  if (!messageId) {
+    return respond({ type: 4, data: { content: "❌ Could not identify poll.", flags: 64 } });
+  }
+
+  const { data: poll } = await adminClient.from("active_polls").select("*").eq("message_id", messageId).eq("ended", false).maybeSingle();
+  if (!poll) {
+    return respond({ type: 4, data: { content: "❌ This poll has already ended.", flags: 64 } });
+  }
+
+  const votes = (poll.votes as Record<string, string[]>) || {};
+  const options = (poll.options as string[]) || [];
+
+  // Check if user already voted on this option
+  const currentVoters = votes[optionIndex] || [];
+  const alreadyVoted = currentVoters.includes(userId);
+
+  if (alreadyVoted) {
+    // Remove vote
+    votes[optionIndex] = currentVoters.filter((id: string) => id !== userId);
+  } else {
+    // If not multiple choice, remove from all other options first
+    if (!poll.multiple_choice) {
+      for (const key of Object.keys(votes)) {
+        votes[key] = (votes[key] || []).filter((id: string) => id !== userId);
+      }
+    }
+    votes[optionIndex] = [...(votes[optionIndex] || []), userId];
+  }
+
+  // Update votes in DB
+  await adminClient.from("active_polls").update({ votes }).eq("id", poll.id);
+
+  // Calculate totals for embed update
+  const totalVotes = Object.values(votes).reduce((sum: number, arr: any) => sum + (arr?.length || 0), 0);
+  const emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
+  const endTime = Math.floor(new Date(poll.ends_at).getTime() / 1000);
+
+  const description = options.map((opt: string, i: number) => {
+    const count = (votes[String(i)] || []).length;
+    const pct = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
+    const bar = "█".repeat(Math.round(pct / 10)) + "░".repeat(10 - Math.round(pct / 10));
+    return `${emojis[i] || "▫️"} ${opt} — **${count} vote${count !== 1 ? "s" : ""}** (${pct}%)\n${bar}`;
+  }).join("\n");
+
+  const embed = {
+    title: `📊 ${poll.question}`,
+    description: `${description}\n\n⏰ Ends <t:${endTime}:R>${poll.multiple_choice ? "\n✅ Multiple choices allowed" : ""}`,
+    color: 0x5865f2,
+    footer: { text: `${totalVotes} total vote${totalVotes !== 1 ? "s" : ""}` },
+  };
+
+  // Update the original message embed
+  await fetch(`https://discord.com/api/v10/channels/${poll.channel_id}/messages/${messageId}`, {
+    method: "PATCH",
+    headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ embeds: [embed] }),
+  });
+
+  const action = alreadyVoted ? "removed" : "recorded";
+  return respond({ type: 4, data: { content: `✅ Vote ${action} for **${options[parseInt(optionIndex)] || "option"}**!`, flags: 64 } });
+}
+
+// ─── Build Poll Results Embed ─────────────────────────────────────
+function buildPollResultsEmbed(poll: any) {
+  const votes = (poll.votes as Record<string, string[]>) || {};
+  const options = (poll.options as string[]) || [];
+  const emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
+  const totalVotes = Object.values(votes).reduce((sum: number, arr: any) => sum + (arr?.length || 0), 0);
+
+  const description = options.map((opt: string, i: number) => {
+    const count = (votes[String(i)] || []).length;
+    const pct = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
+    const bar = "█".repeat(Math.round(pct / 10)) + "░".repeat(10 - Math.round(pct / 10));
+    return `${emojis[i] || "▫️"} **${opt}** — ${count} vote${count !== 1 ? "s" : ""} (${pct}%)\n${bar}`;
+  }).join("\n");
+
+  // Find winner(s)
+  let maxVotes = 0;
+  const winners: string[] = [];
+  options.forEach((opt: string, i: number) => {
+    const count = (votes[String(i)] || []).length;
+    if (count > maxVotes) { maxVotes = count; winners.length = 0; winners.push(opt); }
+    else if (count === maxVotes && count > 0) winners.push(opt);
+  });
+
+  const winnerText = winners.length > 0 ? `\n\n🏆 **Winner${winners.length > 1 ? "s" : ""}:** ${winners.join(", ")}` : "";
+
+  return {
+    title: `📊 Poll Results: ${poll.question}`,
+    description: `${description}${winnerText}\n\n📊 **Total Votes:** ${totalVotes}`,
+    color: 0x57f287,
+    footer: { text: "Poll ended" },
+    timestamp: new Date().toISOString(),
+  };
+}
+
+// ─── Auto-End Polls ───────────────────────────────────────────────
+async function autoEndPolls(adminClient: any) {
+  const now = new Date().toISOString();
+  const { data: expiredPolls } = await adminClient
+    .from("active_polls")
+    .select("*")
+    .eq("ended", false)
+    .lte("ends_at", now);
+
+  if (!expiredPolls?.length) {
+    return new Response(JSON.stringify({ ended: 0 }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  let endedCount = 0;
+  for (const poll of expiredPolls) {
+    try {
+      const { data: bot } = await adminClient.from("bots").select("*").eq("id", poll.bot_id).maybeSingle();
+      if (!bot) continue;
+      const token = atob(bot.token_encrypted);
+
+      const resultsEmbed = buildPollResultsEmbed(poll);
+
+      // Edit original message to show ended state with disabled buttons
+      const options = (poll.options as string[]) || [];
+      const emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
+      const components: any[] = [];
+      let currentRow: any = { type: 1, components: [] };
+      options.forEach((opt: string, i: number) => {
+        if (currentRow.components.length >= 5) {
+          components.push(currentRow);
+          currentRow = { type: 1, components: [] };
+        }
+        currentRow.components.push({
+          type: 2, style: 2,
+          label: `${emojis[i] || "▫️"} ${opt}`,
+          custom_id: `poll_ended_${poll.id}_${i}`,
+          disabled: true,
+        });
+      });
+      if (currentRow.components.length > 0) components.push(currentRow);
+
+      await fetch(`https://discord.com/api/v10/channels/${poll.channel_id}/messages/${poll.message_id}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          embeds: [{ ...resultsEmbed, title: `📊 POLL ENDED: ${poll.question}` }],
+          components,
+        }),
+      });
+
+      // Send results as a new message
+      await fetch(`https://discord.com/api/v10/channels/${poll.channel_id}/messages`, {
+        method: "POST",
+        headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ embeds: [resultsEmbed] }),
+      });
+
+      await adminClient.from("active_polls").update({ ended: true }).eq("id", poll.id);
+      endedCount++;
+    } catch (err) {
+      console.error("Error ending poll:", err);
+    }
+  }
+
+  return new Response(JSON.stringify({ ended: endedCount }), {
+    status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 }
 
 // ─── HTML Selector Extraction (lightweight, no DOM parser needed) ──

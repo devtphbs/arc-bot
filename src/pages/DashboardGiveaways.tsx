@@ -55,6 +55,7 @@ export default function DashboardGiveaways() {
   const { selectedBot } = useBot();
   const { user } = useAuth();
   const [giveaways, setGiveaways] = useState<Giveaway[]>([]);
+  const [allowedRoles, setAllowedRoles] = useState<string[]>([]);
   const [enabled, setEnabled] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -62,8 +63,9 @@ export default function DashboardGiveaways() {
     if (!selectedBot) return;
     supabase.from("bot_modules").select("*").eq("bot_id", selectedBot.id).eq("module_name", "giveaways").maybeSingle().then(({ data }) => {
       if (data?.config) {
-        const c = data.config as { giveaways?: Giveaway[] };
+        const c = data.config as { giveaways?: Giveaway[]; allowedRoles?: string[] };
         setGiveaways(c.giveaways || []);
+        setAllowedRoles(c.allowedRoles || []);
         setEnabled(data.enabled);
       }
     });
@@ -84,7 +86,7 @@ export default function DashboardGiveaways() {
     if (!selectedBot || !user) return;
     setSaving(true);
     try {
-      const config = { giveaways } as unknown as Json;
+      const config = { giveaways, allowedRoles } as unknown as Json;
       const { data: existing } = await supabase.from("bot_modules").select("id").eq("bot_id", selectedBot.id).eq("module_name", "giveaways").maybeSingle();
       if (existing) {
         await supabase.from("bot_modules").update({ enabled, config }).eq("id", existing.id);
@@ -140,6 +142,21 @@ export default function DashboardGiveaways() {
             <span key={cmd} className="px-3 py-1.5 rounded-md bg-background border border-border text-sm font-mono text-primary">{cmd}</span>
           ))}
         </div>
+      </motion.div>
+
+      {/* Allowed Roles */}
+      <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="mt-4 rounded-lg border border-border bg-card p-4">
+        <DiscordEntityPicker
+          type="role"
+          value=""
+          onChange={() => {}}
+          multiple
+          values={allowedRoles}
+          onChangeMultiple={setAllowedRoles}
+          label="🔒 Allowed Roles (who can use /giveaway)"
+          placeholder="Leave empty = everyone"
+        />
+        <p className="text-[10px] text-muted-foreground mt-1">Restrict who can start/end/reroll giveaways. Empty = anyone with access.</p>
       </motion.div>
 
       <div className="space-y-4 mt-6">

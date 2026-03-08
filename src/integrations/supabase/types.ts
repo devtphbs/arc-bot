@@ -67,6 +67,62 @@ export type Database = {
           },
         ]
       }
+      active_polls: {
+        Row: {
+          anonymous: boolean
+          bot_id: string
+          channel_id: string
+          created_at: string
+          ended: boolean
+          ends_at: string
+          guild_id: string
+          id: string
+          message_id: string
+          multiple_choice: boolean
+          options: Json
+          question: string
+          votes: Json
+        }
+        Insert: {
+          anonymous?: boolean
+          bot_id: string
+          channel_id: string
+          created_at?: string
+          ended?: boolean
+          ends_at: string
+          guild_id: string
+          id?: string
+          message_id: string
+          multiple_choice?: boolean
+          options?: Json
+          question: string
+          votes?: Json
+        }
+        Update: {
+          anonymous?: boolean
+          bot_id?: string
+          channel_id?: string
+          created_at?: string
+          ended?: boolean
+          ends_at?: string
+          guild_id?: string
+          id?: string
+          message_id?: string
+          multiple_choice?: boolean
+          options?: Json
+          question?: string
+          votes?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "active_polls_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       auto_backups: {
         Row: {
           backup_data: Json
