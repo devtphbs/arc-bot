@@ -341,6 +341,120 @@ async function handleInteraction(interaction: any, token: string, adminClient: a
   }
 }
 
+
+// ─── Execute Command Builder Blocks (Gateway version) ────────────
+async function executeCommandBlocksGateway(blocks: any[], variables: any[], interaction: any, token: string) {
+  const userId = interaction.member?.user?.id || "";
+  const userName = interaction.member?.user?.username || "unknown";
+  const guildId = interaction.guild_id || "";
+  const channelId = interaction.channel_id || "";
+
+  const ctx: Record<string, string> = {
+    user: `<@${userId}>`, "user.id": userId, "user.name": userName,
+    channel: `<#${channelId}>`, "channel.id": channelId,
+    server: guildId, mention: `<@${userId}>`,
+  };
+  for (const v of variables) { if (v.key && !ctx[v.key]) ctx[v.key] = v.fallback || ""; }
+  const options = interaction.data?.options || [];
+  for (const opt of options) { if (opt.type !== 1) ctx[`options.${opt.name}`] = String(opt.value ?? ""); }
+
+  function resolve(text: string): string {
+    return text.replace(/\{([\w.]+)\}/g, (match: string, key: string) => ctx[key] ?? match);
+  }
+
+  let replyContent = "";
+  const embeds: any[] = [];
+
+  for (const block of blocks) {
+    try {
+      switch (block.type) {
+        case "reply": {
+          const text = resolve(block.value || "");
+          replyContent += (replyContent ? "\n" : "") + text;
+          break;
+        }
+        case "embed": {
+          try {
+            const parsed = JSON.parse(resolve(block.value || "{}"));
+            const embed: any = {};
+            if (parsed.title) embed.title = parsed.title;
+            if (parsed.description) embed.description = parsed.description;
+            if (parsed.color) embed.color = typeof parsed.color === "string" ? parseInt(parsed.color.replace("#", ""), 16) : parsed.color;
+            if (parsed.footer) embed.footer = { text: parsed.footer };
+            if (parsed.image) embed.image = { url: parsed.image };
+            if (parsed.thumbnail) embed.thumbnail = { url: parsed.thumbnail };
+            if (parsed.fields) embed.fields = parsed.fields;
+            embeds.push(embed);
+          } catch { replyContent += (replyContent ? "\n" : "") + resolve(block.value || ""); }
+          break;
+        }
+        case "dm_user": {
+          try {
+            const dmRes = await fetch("https://discord.com/api/v10/users/@me/channels", {
+              method: "POST", headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ recipient_id: userId }),
+            });
+            if (dmRes.ok) {
+              const dmCh = await dmRes.json();
+              await fetch(`https://discord.com/api/v10/channels/${dmCh.id}/messages`, {
+                method: "POST", headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ content: resolve(block.value || "") }),
+              });
+            }
+          } catch { /* dm failed */ }
+          break;
+        }
+        case "send_to_channel": {
+          const parts = (block.value || "").split("|").map((s: string) => s.trim());
+          const targetCh = resolve(parts[0] || channelId);
+          const msg = resolve(parts[1] || parts[0] || "");
+          try {
+            await fetch(`https://discord.com/api/v10/channels/${targetCh}/messages`, {
+              method: "POST", headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ content: msg }),
+            });
+          } catch { /* failed */ }
+          break;
+        }
+        case "add_role": case "remove_role": case "toggle_role": {
+          const roleId = resolve(block.value || "").trim();
+          if (roleId && guildId) {
+            await fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${userId}/roles/${roleId}`, {
+              method: block.type === "remove_role" ? "DELETE" : "PUT",
+              headers: { Authorization: `Bot ${token}` },
+            });
+          }
+          break;
+        }
+        case "wait": {
+          const ms = Math.min(parseInt(block.value || "1") * 1000, 5000);
+          await new Promise(r => setTimeout(r, ms));
+          break;
+        }
+        case "member_count": {
+          try {
+            const gRes = await fetch(`https://discord.com/api/v10/guilds/${guildId}?with_counts=true`, { headers: { Authorization: `Bot ${token}` } });
+            if (gRes.ok) { const g = await gRes.json(); if (block.variableKey) ctx[block.variableKey] = String(g.approximate_member_count || g.member_count || 0); }
+          } catch { /* failed */ }
+          break;
+        }
+        case "channel_count": {
+          try {
+            const chRes = await fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, { headers: { Authorization: `Bot ${token}` } });
+            if (chRes.ok) { const chs = await chRes.json(); if (block.variableKey) ctx[block.variableKey] = String(Array.isArray(chs) ? chs.length : 0); }
+          } catch { /* failed */ }
+          break;
+        }
+        default: break;
+      }
+      if (block.variableKey && block.type === "reply") ctx[block.variableKey] = resolve(block.value || "");
+    } catch (err: any) { console.error(`Block ${block.type} error:`, err.message); }
+  }
+
+  replyContent = replyContent.replace(/\{([\w.]+)\}/g, (match: string, key: string) => ctx[key] ?? match);
+  return { content: replyContent || null, embeds };
+}
+
 async function respond(id: string, token: string, body: any) {
   await fetch(`https://discord.com/api/v10/interactions/${id}/${token}/callback`, {
     method: "POST",
