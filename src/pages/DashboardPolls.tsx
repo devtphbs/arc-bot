@@ -62,7 +62,7 @@ export default function DashboardPolls() {
     });
   }, [selectedBot?.id]);
 
-  const addPoll = () => setPolls((p) => [...p, { id: createId(), question: "", options: ["Option 1", "Option 2"], duration: "1d", multipleChoice: false, anonymous: false, allowedRoles: [] }]);
+  const addPoll = () => setPolls((p) => [...p, { id: createId(), question: "", options: ["Option 1", "Option 2"], duration: "1d", multipleChoice: false, anonymous: false }]);
   const updatePoll = (id: string, updates: Partial<PollTemplate>) => setPolls((p) => p.map((pl) => (pl.id === id ? { ...pl, ...updates } : pl)));
   const deletePoll = (id: string) => setPolls((p) => p.filter((pl) => pl.id !== id));
   const addOption = (id: string) => setPolls((p) => p.map((pl) => (pl.id === id ? { ...pl, options: [...pl.options, `Option ${pl.options.length + 1}`] } : pl)));
