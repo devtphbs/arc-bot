@@ -54,9 +54,16 @@ const SCRIPT_TEMPLATE = `// Custom Script — runs when the trigger command is u
 //   removeRole(userId, roleId) — remove a role from a user
 //   wait(seconds)          — wait before continuing
 //   embed({ title, description, color, fields }) — send an embed
+//   scrape("https://example.com", ".css-selector") — fetch text from a website element
+//     → result available as {scrape.0}, {scrape.1}, etc. (one per scrape call)
+//     → use CSS selectors from the browser inspect element (e.g. ".price", "#title", "h1")
 //
 // Example:
 reply("Hello {user}! You said: {args}");
+
+// Scrape example:
+// scrape("https://example.com/api", ".result-text")
+// reply("The result is: {scrape.0}");
 `;
 
 export default function DashboardCustomCommands() {
