@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Terminal, Zap, Shield, RefreshCw, ScrollText, Settings, Bot, ChevronLeft, Plus, Circle,
   UserPlus, Heart, BarChart3, Trophy, Ticket, Palette, Medal, FileCode, Music, MessageSquare, Gift, Vote,
-  Variable, Bell,
+  Variable, Bell, Activity, DatabaseBackup,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -54,7 +54,9 @@ const navSections = [
   {
     label: "System",
     items: [
+      { title: "Status Monitor", url: "/dashboard/status", icon: Activity },
       { title: "Export Bot", url: "/dashboard/export", icon: FileCode },
+      { title: "Backup & Restore", url: "/dashboard/backup", icon: DatabaseBackup },
       { title: "Settings", url: "/dashboard/settings", icon: Settings },
     ],
   },

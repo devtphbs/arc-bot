@@ -73,129 +73,223 @@ Deno.serve(async (req) => {
     const gatewayData = await gatewayRes.json();
     const gatewayUrl = `${gatewayData.url}/?v=10&encoding=json`;
 
-    const ws = new WebSocket(gatewayUrl);
-    let heartbeatInterval: number | null = null;
-    let sequence: number | null = null;
+    const result = await connectGatewayWithFallback({
+      gatewayUrl,
+      token,
+      presenceStatus,
+      activityType,
+      statusText,
+      onDispatch: (eventType, payload) => {
+        if (eventType === "INTERACTION_CREATE") {
+          void handleInteraction(payload, token, adminClient, bot_id, user.id, commands || []);
+        }
 
-    const result = await new Promise<{ success: boolean; session_id?: string; error?: string }>((resolve) => {
-      const timeout = setTimeout(() => {
-        ws.close();
-        resolve({ success: false, error: "Gateway connection timed out" });
-      }, 24000);
-
-      ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        const { op, d, s, t } = data;
-        if (s) sequence = s;
-
-        switch (op) {
-          case 10: {
-            heartbeatInterval = setInterval(() => {
-              ws.send(JSON.stringify({ op: 1, d: sequence }));
-            }, d.heartbeat_interval) as unknown as number;
-
-            const activities = statusText ? [{ name: statusText, type: activityType }] : [];
-            ws.send(JSON.stringify({
-              op: 2,
-              d: {
-                token,
-                intents: 53608447, // All non-privileged + GUILD_MEMBERS + MESSAGE_CONTENT
-                properties: { os: "linux", browser: "ArcBot", device: "ArcBot" },
-                presence: { activities, status: presenceStatus, since: null, afk: false },
-              },
-            }));
-            break;
+        if (eventType === "MESSAGE_CREATE" && !payload.author?.bot) {
+          if (levelingConfig?.enabled) {
+            void handleLeveling(payload, adminClient, bot_id, user.id, token, levelingConfig);
           }
-
-          case 0: {
-            if (t === "READY") {
-              const guildCount = d.guilds?.length || 0;
-              adminClient.from("bots").update({
-                status: "online",
-                guild_count: guildCount,
-                bot_id: d.user?.id || bot.bot_id,
-                bot_name: d.user?.username || bot.bot_name,
-                bot_avatar: d.user?.avatar
-                  ? `https://cdn.discordapp.com/avatars/${d.user.id}/${d.user.avatar}.png`
-                  : bot.bot_avatar,
-              }).eq("id", bot_id);
-
-              adminClient.from("bot_logs").insert({
-                bot_id, user_id: user.id, level: "info", source: "gateway",
-                message: `Bot connected. Session: ${d.session_id}, Guilds: ${guildCount}`,
-              });
-
-              // Stay connected for the remaining time to handle events
-              setTimeout(() => {
-                clearTimeout(timeout);
-                resolve({ success: true, session_id: d.session_id });
-              }, 18000); // ~18s of active event handling
-            }
-
-            if (t === "INTERACTION_CREATE") {
-              handleInteraction(d, token, adminClient, bot_id, user.id, commands || []);
-            }
-
-            if (t === "MESSAGE_CREATE") {
-              if (!d.author?.bot) {
-                // Leveling
-                if (levelingConfig?.enabled) {
-                  handleLeveling(d, adminClient, bot_id, user.id, token, levelingConfig);
-                }
-                // Auto-responder
-                if (modules.auto_responder) {
-                  handleAutoResponder(d, token, modules.auto_responder);
-                }
-              }
-            }
-
-            if (t === "GUILD_MEMBER_ADD") {
-              if (modules.welcome) {
-                handleWelcome(d, token, modules.welcome, true);
-              }
-            }
-
-            if (t === "GUILD_MEMBER_REMOVE") {
-              if (modules.leave) {
-                handleWelcome(d, token, modules.leave, false);
-              }
-            }
-
-            if (t === "MESSAGE_REACTION_ADD") {
-              if (modules.reaction_roles) {
-                handleReactionRole(d, token, modules.reaction_roles, "add");
-              }
-            }
-
-            if (t === "MESSAGE_REACTION_REMOVE") {
-              if (modules.reaction_roles) {
-                handleReactionRole(d, token, modules.reaction_roles, "remove");
-              }
-            }
-            break;
-          }
-
-          case 11: break; // Heartbeat ACK
-          case 9: {
-            clearTimeout(timeout);
-            resolve({ success: false, error: "Invalid session" });
-            break;
+          if (modules.auto_responder) {
+            void handleAutoResponder(payload, token, modules.auto_responder);
           }
         }
-      };
 
-      ws.onerror = () => { clearTimeout(timeout); resolve({ success: false, error: "WebSocket error" }); };
-      ws.onclose = () => { if (heartbeatInterval) clearInterval(heartbeatInterval); };
+        if (eventType === "GUILD_MEMBER_ADD" && modules.welcome) {
+          void handleWelcome(payload, token, modules.welcome, true);
+        }
+
+        if (eventType === "GUILD_MEMBER_REMOVE" && modules.leave) {
+          void handleWelcome(payload, token, modules.leave, false);
+        }
+
+        if (eventType === "MESSAGE_REACTION_ADD" && modules.reaction_roles) {
+          void handleReactionRole(payload, token, modules.reaction_roles, "add");
+        }
+
+        if (eventType === "MESSAGE_REACTION_REMOVE" && modules.reaction_roles) {
+          void handleReactionRole(payload, token, modules.reaction_roles, "remove");
+        }
+      },
     });
 
-    if (heartbeatInterval) clearInterval(heartbeatInterval);
-    try { ws.close(); } catch (_) {}
+    if (result.success) {
+      const guildCount = result.guild_count || 0;
+      await adminClient.from("bots").update({
+        status: "online",
+        guild_count: guildCount,
+        bot_id: result.user?.id || bot.bot_id,
+        bot_name: result.user?.username || bot.bot_name,
+        bot_avatar: result.user?.avatar
+          ? `https://cdn.discordapp.com/avatars/${result.user.id}/${result.user.avatar}.png`
+          : bot.bot_avatar,
+      }).eq("id", bot_id);
+
+      await adminClient.from("bot_logs").insert({
+        bot_id,
+        user_id: user.id,
+        level: "info",
+        source: "gateway",
+        message: `Bot connected. Session: ${result.session_id}, Guilds: ${guildCount}, Intents: ${result.intents}`,
+      });
+    } else {
+      await adminClient.from("bots").update({ status: "offline" }).eq("id", bot_id);
+      await adminClient.from("bot_logs").insert({
+        bot_id,
+        user_id: user.id,
+        level: "warn",
+        source: "gateway",
+        message: `Gateway connect failed: ${result.error || "Unknown error"}`,
+      });
+    }
 
     return new Response(JSON.stringify(result), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err: any) {
     return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
+
+interface GatewayConnectOptions {
+  gatewayUrl: string;
+  token: string;
+  presenceStatus: string;
+  activityType: number;
+  statusText: string;
+  onDispatch: (eventType: string, payload: any) => void;
+}
+
+interface GatewayConnectResult {
+  success: boolean;
+  error?: string;
+  close_code?: number;
+  session_id?: string;
+  guild_count?: number;
+  user?: any;
+  intents?: number;
+}
+
+const INTENT_CANDIDATES = [33281, 513, 1];
+
+async function connectGatewayWithFallback(options: GatewayConnectOptions): Promise<GatewayConnectResult> {
+  let lastError: GatewayConnectResult = { success: false, error: "Gateway connection failed" };
+
+  for (const intents of INTENT_CANDIDATES) {
+    const attempt = await connectGatewaySession(options, intents);
+    if (attempt.success) return attempt;
+
+    lastError = attempt;
+    if (attempt.close_code === 4014) continue;
+    break;
+  }
+
+  return lastError;
+}
+
+function connectGatewaySession(options: GatewayConnectOptions, intents: number): Promise<GatewayConnectResult> {
+  return new Promise((resolve) => {
+    const ws = new WebSocket(options.gatewayUrl);
+    let settled = false;
+    let sequence: number | null = null;
+    let heartbeatInterval: number | null = null;
+    let activeWindowTimer: number | null = null;
+    let readyPayload: any = null;
+
+    const timeout = setTimeout(() => {
+      settle({ success: false, error: "Gateway connection timed out" });
+    }, 22000) as unknown as number;
+
+    const settle = (result: GatewayConnectResult) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      if (activeWindowTimer) clearTimeout(activeWindowTimer);
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
+      try { ws.close(); } catch (_) {}
+      resolve({ ...result, intents });
+    };
+
+    ws.onmessage = (event) => {
+      let packet: any;
+      try {
+        packet = JSON.parse(event.data);
+      } catch {
+        return;
+      }
+
+      const { op, d, s, t } = packet;
+      if (typeof s === "number") sequence = s;
+
+      if (op === 10) {
+        heartbeatInterval = setInterval(() => {
+          try {
+            ws.send(JSON.stringify({ op: 1, d: sequence }));
+          } catch (_) {}
+        }, d.heartbeat_interval) as unknown as number;
+
+        const activities = options.statusText ? [{ name: options.statusText, type: options.activityType }] : [];
+        ws.send(JSON.stringify({
+          op: 2,
+          d: {
+            token: options.token,
+            intents,
+            properties: { os: "linux", browser: "ArcBot", device: "ArcBot" },
+            presence: { activities, status: options.presenceStatus, since: null, afk: false },
+          },
+        }));
+        return;
+      }
+
+      if (op === 0 && t === "READY") {
+        readyPayload = d;
+        activeWindowTimer = setTimeout(() => {
+          settle({
+            success: true,
+            session_id: d.session_id,
+            guild_count: d.guilds?.length || 0,
+            user: d.user,
+          });
+        }, 10000) as unknown as number;
+        return;
+      }
+
+      if (op === 0 && t) {
+        options.onDispatch(t, d);
+        return;
+      }
+
+      if (op === 9) {
+        settle({ success: false, error: "Invalid session", close_code: 4006 });
+      }
+    };
+
+    ws.onerror = () => {
+      settle({ success: false, error: "WebSocket error" });
+    };
+
+    ws.onclose = (event: CloseEvent) => {
+      if (settled) return;
+
+      if (event.code === 4014) {
+        settle({ success: false, error: "Disallowed intents", close_code: event.code });
+        return;
+      }
+
+      if (readyPayload) {
+        settle({
+          success: true,
+          session_id: readyPayload.session_id,
+          guild_count: readyPayload.guilds?.length || 0,
+          user: readyPayload.user,
+        });
+        return;
+      }
+
+      settle({
+        success: false,
+        error: `Gateway closed (code ${event.code})${event.reason ? `: ${event.reason}` : ""}`,
+        close_code: event.code,
+      });
+    };
+  });
+}
 
 // ─── Interaction Handler ────────────────────────────────────────
 async function handleInteraction(interaction: any, token: string, adminClient: any, botDbId: string, userId: string, commands: any[]) {

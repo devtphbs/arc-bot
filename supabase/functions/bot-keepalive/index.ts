@@ -5,8 +5,16 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Cron-triggered function that reconnects all "online" bots to Discord Gateway
-// to maintain 24/7 uptime. Called every 2 minutes via pg_cron.
+const INTENT_CANDIDATES = [33281, 513, 1];
+
+interface KeepaliveResult {
+  success: boolean;
+  guild_count?: number;
+  user?: any;
+  error?: string;
+  close_code?: number;
+  intents?: number;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -19,7 +27,6 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Get all bots marked as "online"
     const { data: onlineBots, error } = await adminClient
       .from("bots")
       .select("id, user_id, bot_name, token_encrypted, bot_id")
@@ -38,7 +45,6 @@ Deno.serve(async (req) => {
       try {
         const token = atob(bot.token_encrypted);
 
-        // Load status config
         const { data: statusModule } = await adminClient
           .from("bot_modules")
           .select("config")
@@ -51,90 +57,56 @@ Deno.serve(async (req) => {
         const activityType = statusConfig.activity_type || 0;
         const statusText = statusConfig.status_text || "";
 
-        // Get Gateway URL
         const gatewayRes = await fetch("https://discord.com/api/v10/gateway/bot", {
           headers: { Authorization: `Bot ${token}` },
         });
 
         if (!gatewayRes.ok) {
-          results.push({ bot_id: bot.id, bot_name: bot.bot_name, success: false, error: "Invalid token" });
           await adminClient.from("bots").update({ status: "offline" }).eq("id", bot.id);
+          await adminClient.from("bot_logs").insert({
+            bot_id: bot.id,
+            user_id: bot.user_id,
+            level: "warn",
+            source: "keepalive",
+            message: "Bot token rejected by Discord gateway endpoint",
+          });
+          results.push({ bot_id: bot.id, bot_name: bot.bot_name, success: false, error: "Invalid token" });
           continue;
         }
 
         const gatewayData = await gatewayRes.json();
         const gatewayUrl = `${gatewayData.url}/?v=10&encoding=json`;
 
-        // Connect and identify
-        const result = await new Promise<boolean>((resolve) => {
-          const timeout = setTimeout(() => { resolve(false); }, 20000);
-          const ws = new WebSocket(gatewayUrl);
-          let seq: number | null = null;
-          let hbInterval: number | null = null;
-
-          ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            if (data.s) seq = data.s;
-
-            if (data.op === 10) {
-              hbInterval = setInterval(() => {
-                ws.send(JSON.stringify({ op: 1, d: seq }));
-              }, data.d.heartbeat_interval) as unknown as number;
-
-              const activities = statusText ? [{ name: statusText, type: activityType }] : [];
-              ws.send(JSON.stringify({
-                op: 2,
-                d: {
-                  token,
-                  intents: 33281,
-                  properties: { os: "linux", browser: "ArcBot", device: "ArcBot" },
-                  presence: { activities, status: presenceStatus, since: null, afk: false },
-                },
-              }));
-            }
-
-            if (data.op === 0 && data.t === "READY") {
-              const guildCount = data.d.guilds?.length || 0;
-              adminClient.from("bots").update({
-                status: "online",
-                guild_count: guildCount,
-                bot_id: data.d.user?.id || bot.bot_id,
-              }).eq("id", bot.id);
-
-              // Stay connected for a few seconds to handle interactions
-              setTimeout(() => {
-                clearTimeout(timeout);
-                if (hbInterval) clearInterval(hbInterval);
-                try { ws.close(); } catch (_) {}
-                resolve(true);
-              }, 5000);
-            }
-
-            if (data.op === 9) {
-              clearTimeout(timeout);
-              if (hbInterval) clearInterval(hbInterval);
-              try { ws.close(); } catch (_) {}
-              resolve(false);
-            }
-          };
-
-          ws.onerror = () => {
-            clearTimeout(timeout);
-            if (hbInterval) clearInterval(hbInterval);
-            resolve(false);
-          };
-
-          ws.onclose = () => {
-            if (hbInterval) clearInterval(hbInterval);
-          };
+        const result = await connectWithFallback({
+          gatewayUrl,
+          token,
+          presenceStatus,
+          activityType,
+          statusText,
         });
 
-        results.push({ bot_id: bot.id, bot_name: bot.bot_name, success: result });
-
-        if (!result) {
+        if (!result.success) {
           await adminClient.from("bots").update({ status: "offline" }).eq("id", bot.id);
+          await adminClient.from("bot_logs").insert({
+            bot_id: bot.id,
+            user_id: bot.user_id,
+            level: "warn",
+            source: "keepalive",
+            message: `Keepalive failed: ${result.error || "Unknown error"}`,
+          });
+          results.push({ bot_id: bot.id, bot_name: bot.bot_name, success: false, error: result.error });
+          continue;
         }
+
+        await adminClient.from("bots").update({
+          status: "online",
+          guild_count: result.guild_count || 0,
+          bot_id: result.user?.id || bot.bot_id,
+        }).eq("id", bot.id);
+
+        results.push({ bot_id: bot.id, bot_name: bot.bot_name, success: true });
       } catch (err: any) {
+        await adminClient.from("bots").update({ status: "offline" }).eq("id", bot.id);
         results.push({ bot_id: bot.id, bot_name: bot.bot_name, success: false, error: err.message });
       }
     }
@@ -150,3 +122,122 @@ Deno.serve(async (req) => {
     });
   }
 });
+
+async function connectWithFallback(params: {
+  gatewayUrl: string;
+  token: string;
+  presenceStatus: string;
+  activityType: number;
+  statusText: string;
+}): Promise<KeepaliveResult> {
+  let lastError: KeepaliveResult = { success: false, error: "Gateway connection failed" };
+
+  for (const intents of INTENT_CANDIDATES) {
+    const result = await connectOnce(params, intents);
+    if (result.success) return result;
+
+    lastError = result;
+    if (result.close_code === 4014) continue;
+    break;
+  }
+
+  return lastError;
+}
+
+function connectOnce(params: {
+  gatewayUrl: string;
+  token: string;
+  presenceStatus: string;
+  activityType: number;
+  statusText: string;
+}, intents: number): Promise<KeepaliveResult> {
+  return new Promise((resolve) => {
+    const ws = new WebSocket(params.gatewayUrl);
+    let settled = false;
+    let sequence: number | null = null;
+    let heartbeatInterval: number | null = null;
+    let readyPayload: any = null;
+
+    const timeout = setTimeout(() => {
+      settle({ success: false, error: "Gateway connection timed out" });
+    }, 18000) as unknown as number;
+
+    const settle = (result: KeepaliveResult) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
+      try { ws.close(); } catch (_) {}
+      resolve({ ...result, intents });
+    };
+
+    ws.onmessage = (event) => {
+      let packet: any;
+      try {
+        packet = JSON.parse(event.data);
+      } catch {
+        return;
+      }
+
+      const { op, d, s, t } = packet;
+      if (typeof s === "number") sequence = s;
+
+      if (op === 10) {
+        heartbeatInterval = setInterval(() => {
+          try {
+            ws.send(JSON.stringify({ op: 1, d: sequence }));
+          } catch (_) {}
+        }, d.heartbeat_interval) as unknown as number;
+
+        const activities = params.statusText ? [{ name: params.statusText, type: params.activityType }] : [];
+        ws.send(JSON.stringify({
+          op: 2,
+          d: {
+            token: params.token,
+            intents,
+            properties: { os: "linux", browser: "ArcBot", device: "ArcBot" },
+            presence: { activities, status: params.presenceStatus, since: null, afk: false },
+          },
+        }));
+        return;
+      }
+
+      if (op === 0 && t === "READY") {
+        readyPayload = d;
+        setTimeout(() => {
+          settle({ success: true, guild_count: d.guilds?.length || 0, user: d.user });
+        }, 3000);
+        return;
+      }
+
+      if (op === 9) {
+        settle({ success: false, error: "Invalid session", close_code: 4006 });
+      }
+    };
+
+    ws.onerror = () => {
+      settle({ success: false, error: "WebSocket error" });
+    };
+
+    ws.onclose = (event: CloseEvent) => {
+      if (settled) return;
+
+      if (event.code === 4014) {
+        settle({ success: false, error: "Disallowed intents", close_code: event.code });
+        return;
+      }
+
+      if (readyPayload) {
+        settle({ success: true, guild_count: readyPayload.guilds?.length || 0, user: readyPayload.user });
+        return;
+      }
+
+      settle({
+        success: false,
+        error: `Gateway closed (code ${event.code})${event.reason ? `: ${event.reason}` : ""}`,
+        close_code: event.code,
+      });
+    };
+  });
+}
+
