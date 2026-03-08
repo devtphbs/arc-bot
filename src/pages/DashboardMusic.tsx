@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { Music, Volume2, ListMusic, Shield, Save, Loader2, Info } from "lucide-react";
+import { DiscordEntityPicker } from "@/components/DiscordEntityPicker";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useBot } from "@/hooks/useBot";
@@ -180,7 +181,7 @@ export default function DashboardMusic() {
 
         {/* DJ Settings */}
         <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="rounded-lg border border-border bg-card p-5">
-          <div className="flex items-center gap-3 mb-4"><Shield className="w-4 h-4 text-primary" /><h2 className="text-sm font-medium text-card-foreground">DJ Mode</h2></div>
+          <div className="flex items-center gap-3 mb-4"><Shield className="w-4 h-4 text-primary" /><h2 className="text-sm font-medium text-card-foreground">DJ Mode & Role Restrictions</h2></div>
           <label className="flex items-center gap-3 py-1 cursor-pointer mb-3">
             <button onClick={() => update("djOnly", !config.djOnly)} className={cn("w-9 h-5 rounded-full transition-colors relative shrink-0", config.djOnly ? "bg-primary" : "bg-secondary")}>
               <div className={cn("w-4 h-4 rounded-full bg-background absolute top-0.5 transition-transform", config.djOnly ? "translate-x-4" : "translate-x-0.5")} />
@@ -188,9 +189,8 @@ export default function DashboardMusic() {
             <span className="text-sm text-card-foreground">Restrict music commands to DJ role</span>
           </label>
           {config.djOnly && (
-            <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">DJ Role ID</label>
-              <input type="text" value={config.djRoleId} onChange={(e) => update("djRoleId", e.target.value)} placeholder="Role ID" className="w-full px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+            <div className="mb-3">
+              <DiscordEntityPicker type="role" value={config.djRoleId} onChange={(v) => update("djRoleId", v)} label="🎵 DJ Role" placeholder="Select DJ role" />
             </div>
           )}
         </motion.div>
