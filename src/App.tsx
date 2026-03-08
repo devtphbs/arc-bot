@@ -23,6 +23,8 @@ import DashboardReactionRoles from "./pages/DashboardReactionRoles";
 import DashboardLeveling from "./pages/DashboardLeveling";
 import DashboardTickets from "./pages/DashboardTickets";
 import DashboardEmbedBuilder from "./pages/DashboardEmbedBuilder";
+import DashboardLeaderboard from "./pages/DashboardLeaderboard";
+import DashboardExport from "./pages/DashboardExport";
 import CommandBuilder from "./pages/CommandBuilder";
 
 const queryClient = new QueryClient();
@@ -44,6 +46,8 @@ const App = () => (
                 <Route path="leveling" element={<DashboardLeveling />} />
                 <Route path="tickets" element={<DashboardTickets />} />
                 <Route path="embeds" element={<DashboardEmbedBuilder />} />
+                <Route path="leaderboard" element={<DashboardLeaderboard />} />
+                <Route path="export" element={<DashboardExport />} />
                 <Route path="reaction-roles" element={<DashboardReactionRoles />} />
                 <Route path="events" element={<DashboardEvents />} />
                 <Route path="moderation" element={<DashboardModeration />} />

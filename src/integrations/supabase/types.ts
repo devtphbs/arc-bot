@@ -433,6 +433,50 @@ export type Database = {
           },
         ]
       }
+      user_levels: {
+        Row: {
+          bot_id: string
+          created_at: string
+          guild_id: string
+          id: string
+          last_xp_at: string | null
+          level: number
+          updated_at: string
+          user_id: string
+          xp: number
+        }
+        Insert: {
+          bot_id: string
+          created_at?: string
+          guild_id: string
+          id?: string
+          last_xp_at?: string | null
+          level?: number
+          updated_at?: string
+          user_id: string
+          xp?: number
+        }
+        Update: {
+          bot_id?: string
+          created_at?: string
+          guild_id?: string
+          id?: string
+          last_xp_at?: string | null
+          level?: number
+          updated_at?: string
+          user_id?: string
+          xp?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_levels_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
