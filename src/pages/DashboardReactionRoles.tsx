@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Heart, Plus, Trash2, Save, Loader2, Info } from "lucide-react";
+import { Heart, Plus, Trash2, Save, Loader2, Info, Send } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useBot } from "@/hooks/useBot";
@@ -129,6 +129,27 @@ export default function DashboardReactionRoles() {
     }
   };
 
+  const deployPanel = async (group: ReactionRoleGroup) => {
+    if (!selectedBot || !group.channelId) return;
+    try {
+      const res = await supabase.functions.invoke("discord-interactions", {
+        body: {
+          action: "deploy_reaction_role_panel",
+          bot_id: selectedBot.id,
+          channel_id: group.channelId,
+          message_text: group.messageText,
+          roles: group.roles,
+        },
+      });
+      if (res.error) throw new Error(res.error.message);
+      const data = res.data as any;
+      if (data?.error) throw new Error(data.error);
+      toast.success("Role panel deployed to channel!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to deploy panel");
+    }
+  };
+
   if (!selectedBot) return <div className="p-6 lg:p-8"><p className="text-muted-foreground">Select a bot first.</p></div>;
 
   return (
@@ -219,15 +240,24 @@ export default function DashboardReactionRoles() {
               </div>
             </div>
 
-            {/* Mini preview */}
-            <div className="mt-4 rounded-md bg-background border border-border p-3">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Preview</p>
-              <p className="text-sm text-card-foreground">{group.messageText}</p>
-              <div className="flex gap-1.5 mt-2">
-                {group.roles.map((r) => (
-                  <span key={r.id} className="px-2 py-1 rounded bg-secondary text-xs">{r.emoji} {r.roleName || "Role"}</span>
-                ))}
+            {/* Mini preview & Deploy */}
+            <div className="mt-4 flex items-end gap-3">
+              <div className="flex-1 rounded-md bg-background border border-border p-3">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Preview</p>
+                <p className="text-sm text-card-foreground">{group.messageText}</p>
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {group.roles.map((r) => (
+                    <span key={r.id} className="px-2 py-1 rounded bg-secondary text-xs">{r.emoji} {r.roleName || "Role"}</span>
+                  ))}
+                </div>
               </div>
+              <button
+                onClick={() => deployPanel(group)}
+                disabled={!group.channelId || group.roles.length === 0}
+                className="flex items-center gap-2 px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 shrink-0"
+              >
+                <Send className="w-4 h-4" /> Deploy
+              </button>
             </div>
           </motion.div>
         ))}
