@@ -786,6 +786,14 @@ async function handleModuleCommand(
       return { type: 4, data: { content: "❌ Ticket system is not enabled.", flags: 64 } };
     }
 
+    // Check allowed roles for ticket commands
+    if (modules.tickets) {
+      const ticketAllowedRoles = (modules.tickets.allowedRoles as string[]) || [];
+      if (ticketAllowedRoles.length > 0 && !ticketAllowedRoles.some((r: string) => memberRoles.includes(r))) {
+        return { type: 4, data: { content: "❌ You don't have permission to use ticket commands.", flags: 64 } };
+      }
+    }
+
     if (subCommand === "open") {
       const categoryName = interaction.data?.options?.[0]?.options?.find((o: any) => o.name === "category")?.value || "General Support";
       const ticketNumber = String(Date.now()).slice(-4).padStart(4, "0");
