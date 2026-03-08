@@ -59,6 +59,9 @@ Deno.serve(async (req) => {
     if (interaction.action === "end_giveaways") {
       return await autoEndGiveaways(adminClient);
     }
+    if (interaction.action === "end_polls") {
+      return await autoEndPolls(adminClient);
+    }
 
     const signature = req.headers.get("x-signature-ed25519");
     const timestamp = req.headers.get("x-signature-timestamp");
