@@ -18,7 +18,8 @@ Deno.serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) return json({ error: "Unauthorized" }, 401);
 
-    const { bot_id, action, name, avatar, status_text, activity_type, presence_status } = await req.json();
+    const reqBody = await req.json();
+    const { bot_id, action, name, avatar, status_text, activity_type, presence_status, guild_id: reqGuildId } = reqBody;
     if (!bot_id || !action) return json({ error: "bot_id and action required" }, 400);
 
     const adminClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -118,10 +119,7 @@ Deno.serve(async (req) => {
       }
 
       case "set_guild": {
-        const { guild_id } = await req.json().catch(() => ({}));
-        const body = await req.json().catch(() => ({}));
-        const gid = guild_id || body.guild_id;
-        await adminClient.from("bots").update({ guild_id: gid || null }).eq("id", bot_id);
+        await adminClient.from("bots").update({ guild_id: reqGuildId || null }).eq("id", bot_id);
         return json({ success: true });
       }
 
