@@ -556,7 +556,32 @@ export default function CommandBuilder() {
             </div>
             <div className="space-y-4">
               <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Required Permissions</label>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Required Role IDs</label>
+                <p className="text-[10px] text-muted-foreground mb-2">Paste Discord Role IDs (comma-separated). Only members with at least one of these roles can use this command. Leave empty for everyone.</p>
+                <input
+                  type="text"
+                  value={permissions.filter(p => /^\d+$/.test(p)).join(", ")}
+                  onChange={(e) => {
+                    const ids = e.target.value.split(",").map(s => s.trim()).filter(Boolean);
+                    setPermissions(ids);
+                  }}
+                  placeholder="e.g. 123456789012345678, 987654321098765432"
+                  className="w-full px-3 py-2 rounded-md bg-background border border-border text-sm text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+                {permissions.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {permissions.map((p) => (
+                      <span key={p} className="px-2 py-1 rounded text-[10px] font-mono bg-primary text-primary-foreground flex items-center gap-1">
+                        {p}
+                        <button onClick={() => setPermissions(prev => prev.filter(x => x !== p))} className="hover:opacity-70"><X className="w-3 h-3" /></button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Discord Permissions (optional)</label>
+                <p className="text-[10px] text-muted-foreground mb-2">Additionally require these Discord permissions.</p>
                 <div className="flex flex-wrap gap-1.5">
                   {["ADMINISTRATOR", "MANAGE_GUILD", "MANAGE_ROLES", "KICK_MEMBERS", "BAN_MEMBERS", "MANAGE_MESSAGES", "MANAGE_CHANNELS", "MODERATE_MEMBERS"].map((p) => (
                     <button key={p} onClick={() => setPermissions((prev) => prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p])} className={cn("px-2 py-1 rounded text-[10px] font-mono transition-colors", permissions.includes(p) ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground")}>{p}</button>
