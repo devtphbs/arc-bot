@@ -217,6 +217,11 @@ Deno.serve(async (req) => {
         return await handleGiveawayEntry(interaction, bot, token, adminClient);
       }
 
+      // Poll vote button
+      if (customId.startsWith("poll_vote_")) {
+        return await handlePollVote(interaction, bot, token, adminClient);
+      }
+
       // IMPORTANT: Check ticket_close_ and ticket_claim_ BEFORE ticket_ to avoid creating a new ticket
       if (customId.startsWith("ticket_close_")) {
         return await handleTicketClose(interaction, bot, token, adminClient);
