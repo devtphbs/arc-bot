@@ -165,7 +165,7 @@ export default function DashboardSettings() {
   };
 
   return (
-    <div className="p-6 lg:p-8 max-w-2xl">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-2xl">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
         <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
         <p className="text-sm text-muted-foreground mt-1">Manage your bot's identity and configuration</p>
@@ -226,24 +226,24 @@ export default function DashboardSettings() {
           {/* Bot Identity */}
           <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="rounded-lg border border-border bg-card p-5">
             <div className="flex items-center gap-3 mb-4"><Type className="w-4 h-4 text-primary" /><h2 className="text-sm font-medium text-card-foreground">Bot Identity</h2></div>
-            <div className="flex items-start gap-4 mb-4">
-              <div className="relative group">
-                <div className="w-20 h-20 rounded-full bg-secondary flex items-center justify-center overflow-hidden border-2 border-border">
+            <div className="flex items-start gap-4 mb-4 flex-col sm:flex-row">
+              <div className="relative group shrink-0 mx-auto sm:mx-0">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-secondary flex items-center justify-center overflow-hidden border-2 border-border">
                   {selectedBot.bot_avatar ? (
                     <img src={selectedBot.bot_avatar} alt="" className="w-full h-full object-cover" />
                   ) : (
-                    <span className="text-2xl font-bold text-muted-foreground">{selectedBot.bot_name[0]?.toUpperCase()}</span>
+                    <span className="text-xl sm:text-2xl font-bold text-muted-foreground">{selectedBot.bot_name[0]?.toUpperCase()}</span>
                   )}
                 </div>
                 <button onClick={updateBotAvatar} disabled={updatingAvatar} className="absolute inset-0 rounded-full bg-background/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                   {updatingAvatar ? <Loader2 className="w-5 h-5 animate-spin text-foreground" /> : <Upload className="w-5 h-5 text-foreground" />}
                 </button>
               </div>
-              <div className="flex-1">
+              <div className="flex-1 min-w-0 w-full">
                 <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Bot Username</label>
                 <div className="flex gap-2">
-                  <input type="text" value={botName} onChange={(e) => setBotName(e.target.value)} className="flex-1 px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
-                  <button onClick={updateBotName} disabled={updatingName || botName === selectedBot.bot_name} className="px-4 py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
+                  <input type="text" value={botName} onChange={(e) => setBotName(e.target.value)} className="flex-1 min-w-0 px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+                  <button onClick={updateBotName} disabled={updatingName || botName === selectedBot.bot_name} className="px-3 sm:px-4 py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 shrink-0">
                     {updatingName ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
                   </button>
                 </div>
@@ -262,11 +262,11 @@ export default function DashboardSettings() {
             <div className="space-y-3">
               <div>
                 <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Presence</label>
-                <div className="flex gap-2">
+                <div className="grid grid-cols-2 sm:flex gap-2">
                   {statusTypes.map((s) => (
-                    <button key={s.value} onClick={() => setPresenceStatus(s.value)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs transition-colors ${presenceStatus === s.value ? "bg-primary/10 text-primary border border-primary/30" : "bg-secondary text-secondary-foreground border border-transparent"}`}>
-                      <div className={`w-2 h-2 rounded-full ${s.color}`} />
-                      {s.label}
+                    <button key={s.value} onClick={() => setPresenceStatus(s.value)} className={cn("flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs transition-colors", presenceStatus === s.value ? "bg-primary/10 text-primary border border-primary/30" : "bg-secondary text-secondary-foreground border border-transparent")}>
+                      <div className={cn("w-2 h-2 rounded-full shrink-0", s.color)} />
+                      <span className="truncate">{s.label}</span>
                     </button>
                   ))}
                 </div>
@@ -279,9 +279,9 @@ export default function DashboardSettings() {
               </div>
               <div>
                 <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Status Text</label>
-                <div className="flex gap-2">
-                  <input type="text" value={customStatus} onChange={(e) => setCustomStatus(e.target.value)} placeholder="e.g. with 1,000 users" className="flex-1 px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
-                  <button onClick={updateCustomStatus} disabled={!customStatus.trim()} className="px-4 py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50">Save</button>
+              <div className="flex gap-2">
+                  <input type="text" value={customStatus} onChange={(e) => setCustomStatus(e.target.value)} placeholder="e.g. with 1,000 users" className="flex-1 min-w-0 px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+                  <button onClick={updateCustomStatus} disabled={!customStatus.trim()} className="px-3 sm:px-4 py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 shrink-0">Save</button>
                 </div>
                 <p className="text-[10px] text-muted-foreground mt-1.5">Variables: <code className="font-mono text-primary">{'{guilds}'}</code> <code className="font-mono text-primary">{'{members}'}</code> <code className="font-mono text-primary">{'{commands}'}</code></p>
               </div>
@@ -291,9 +291,9 @@ export default function DashboardSettings() {
           {/* Bot Token */}
           <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="rounded-lg border border-border bg-card p-5">
             <div className="flex items-center gap-3 mb-4"><Key className="w-4 h-4 text-primary" /><h2 className="text-sm font-medium text-card-foreground">Bot Token</h2></div>
-            <div className="flex gap-3">
-              <input type="password" value="••••••••••••••••••••••••••••" readOnly className="flex-1 px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground font-mono focus:outline-none" />
-              <button className="px-4 py-2.5 rounded-md bg-secondary text-secondary-foreground text-sm hover:bg-accent transition-colors">Regenerate</button>
+            <div className="flex gap-2 flex-col sm:flex-row">
+              <input type="password" value="••••••••••••••••••••••••••••" readOnly className="flex-1 min-w-0 px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground font-mono focus:outline-none" />
+              <button className="px-4 py-2.5 rounded-md bg-secondary text-secondary-foreground text-sm hover:bg-accent transition-colors shrink-0">Regenerate</button>
             </div>
             <p className="text-xs text-muted-foreground mt-2">Your token is encrypted and never exposed. To reset, regenerate in the Discord Developer Portal.</p>
           </motion.div>
@@ -301,8 +301,8 @@ export default function DashboardSettings() {
           {/* Bot Prefix */}
           <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="rounded-lg border border-border bg-card p-5">
             <div className="flex items-center gap-3 mb-4"><MessageCircle className="w-4 h-4 text-primary" /><h2 className="text-sm font-medium text-card-foreground">Bot Prefix</h2></div>
-            <div className="flex gap-3">
-              <input type="text" value={prefix} onChange={(e) => setPrefix(e.target.value)} className="w-32 px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-ring" />
+              <div className="flex gap-2">
+                  <input type="text" value={prefix} onChange={(e) => setPrefix(e.target.value)} className="w-24 sm:w-32 px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-ring" />
               <button onClick={updatePrefix} className="px-4 py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">Save</button>
             </div>
             <p className="text-xs text-muted-foreground mt-2">Used for prefix-based commands like <code className="font-mono text-primary">!help</code></p>
