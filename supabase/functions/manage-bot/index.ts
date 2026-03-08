@@ -248,10 +248,16 @@ async function buildAllSlashCommands(adminClient: any, botDbId: string, bot: any
   // Poll
   if (enabledModules.has("polls")) {
     commands.push({
-      name: "poll", description: "Create a poll", type: 1,
+      name: "poll", description: "Create and manage polls", type: 1,
       options: [
-        { name: "question", description: "The poll question", type: 3, required: true },
-        { name: "options", description: "Comma-separated options", type: 3, required: false },
+        { name: "create", description: "Create a new poll", type: 1, options: [
+          { name: "question", description: "The poll question", type: 3, required: true },
+          { name: "options", description: "Comma-separated options (e.g. Yes,No,Maybe)", type: 3, required: false },
+          { name: "duration", description: "Duration (e.g. 1h, 30m, 1d, 1mo)", type: 3, required: false },
+          { name: "channel", description: "Channel to post the poll in", type: 7, required: false },
+        ]},
+        { name: "end", description: "End active polls in this channel", type: 1 },
+        { name: "results", description: "Show results of the last ended poll", type: 1 },
       ],
     });
   }

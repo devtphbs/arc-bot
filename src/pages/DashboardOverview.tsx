@@ -69,7 +69,7 @@ export default function DashboardOverview() {
   const isOnline = selectedBot?.status === "online";
 
   return (
-    <div className="p-6 lg:p-8 max-w-6xl">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
         <h1 className="text-2xl font-semibold text-foreground">Overview</h1>
         <p className="text-sm text-muted-foreground mt-1">
