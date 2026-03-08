@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Terminal, Zap, Shield, RefreshCw, ScrollText, Settings, Bot, ChevronLeft, Plus, Circle,
-  UserPlus, Heart, BarChart3, Trophy, Ticket, Palette,
+  UserPlus, Heart, BarChart3, Trophy, Ticket, Palette, Medal, FileCode,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -17,12 +17,14 @@ const navItems = [
   { title: "Welcome", url: "/dashboard/welcome", icon: UserPlus },
   { title: "Reaction Roles", url: "/dashboard/reaction-roles", icon: Heart },
   { title: "Leveling & XP", url: "/dashboard/leveling", icon: Trophy },
+  { title: "Leaderboard", url: "/dashboard/leaderboard", icon: Medal },
   { title: "Tickets", url: "/dashboard/tickets", icon: Ticket },
   { title: "Events", url: "/dashboard/events", icon: Zap },
   { title: "Moderation", url: "/dashboard/moderation", icon: Shield },
   { title: "Automations", url: "/dashboard/automations", icon: RefreshCw },
   { title: "Analytics", url: "/dashboard/analytics", icon: BarChart3 },
   { title: "Logs", url: "/dashboard/logs", icon: ScrollText },
+  { title: "Export Bot", url: "/dashboard/export", icon: FileCode },
   { title: "Settings", url: "/dashboard/settings", icon: Settings },
 ];
 
