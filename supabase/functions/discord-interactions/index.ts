@@ -132,6 +132,41 @@ Deno.serve(async (req) => {
         return respond(responseData);
       }
 
+      // Custom scripts
+      const { data: customScripts } = await adminClient.from("custom_scripts").select("*").eq("bot_id", bot.id).eq("enabled", true);
+      const script = customScripts?.find((s: any) => s.trigger_command === commandName);
+      if (script) {
+        // Build options map from interaction data
+        const optionsMap: Record<string, any> = {};
+        (interaction.data?.options || []).forEach((o: any) => { optionsMap[o.name] = o.value; });
+
+        // Simple variable resolution for scripts
+        let content = script.script_code || "";
+        // Remove metadata comments
+        content = content.replace(/^\/\/.*/gm, "").trim();
+        
+        // Extract reply() calls
+        const replyMatch = content.match(/reply\(["'`](.+?)["'`]\)/s);
+        let replyText = replyMatch ? replyMatch[1] : "Script executed!";
+
+        // Replace variables
+        replyText = replyText
+          .replace(/\{user\}/g, `<@${interaction.member?.user?.id}>`)
+          .replace(/\{user\.id\}/g, interaction.member?.user?.id || "")
+          .replace(/\{user\.name\}/g, interaction.member?.user?.username || "")
+          .replace(/\{channel\}/g, `<#${interaction.channel_id}>`)
+          .replace(/\{channel\.id\}/g, interaction.channel_id || "")
+          .replace(/\{server\.name\}/g, interaction.guild_id || "");
+
+        // Replace {options.name} with actual option values
+        replyText = replyText.replace(/\{options\.(\w+)\}/g, (_: string, name: string) => {
+          return optionsMap[name] !== undefined ? String(optionsMap[name]) : "";
+        });
+
+        adminClient.from("bot_logs").insert({ bot_id: bot.id, user_id: bot.user_id, level: "info", source: "script", message: `Script /${commandName} used by ${interaction.member?.user?.username || "unknown"}` });
+        return respond({ type: 4, data: { content: replyText } });
+      }
+
       // Module commands
       const result = await handleModuleCommand(commandName, subCommand, interaction, modules, token, adminClient, bot, memberRoles);
       if (result) return respond(result);
