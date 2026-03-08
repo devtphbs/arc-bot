@@ -56,6 +56,13 @@ Deno.serve(async (req) => {
     const statusConfig = (statusModule?.config as any) || {};
     const welcomeModule = modules?.find((m: any) => m.module_name === "welcome");
     const automodModule = modules?.find((m: any) => m.module_name === "automod");
+    const musicModule = modules?.find((m: any) => m.module_name === "music");
+    const musicConfig = (musicModule?.config as any) || {};
+    const autoResponderModule = modules?.find((m: any) => m.module_name === "auto_responder");
+    const autoResponderConfig = (autoResponderModule?.config as any) || {};
+    const giveawayModule = modules?.find((m: any) => m.module_name === "giveaways");
+    const giveawayConfig = (giveawayModule?.config as any) || {};
+    const pollModule = modules?.find((m: any) => m.module_name === "polls");
 
     const slashCommands = (commands || []).filter((c: any) => c.type === "slash");
     const prefixCommands = (commands || []).filter((c: any) => c.type === "prefix");
