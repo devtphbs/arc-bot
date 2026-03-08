@@ -1092,6 +1092,180 @@ async function handleReactionRoleButton(interaction: any, bot: any, token: strin
   }
 }
 
+// ─── Poll Vote Handler ────────────────────────────────────────────
+async function handlePollVote(interaction: any, bot: any, token: string, adminClient: any) {
+  const userId = interaction.member?.user?.id;
+  const messageId = interaction.message?.id;
+  const customId = interaction.data?.custom_id || "";
+  // Format: poll_vote_{pollId}_{optionIndex}
+  const parts = customId.split("_");
+  const optionIndex = parts[parts.length - 1];
+
+  if (!messageId) {
+    return respond({ type: 4, data: { content: "❌ Could not identify poll.", flags: 64 } });
+  }
+
+  const { data: poll } = await adminClient.from("active_polls").select("*").eq("message_id", messageId).eq("ended", false).maybeSingle();
+  if (!poll) {
+    return respond({ type: 4, data: { content: "❌ This poll has already ended.", flags: 64 } });
+  }
+
+  const votes = (poll.votes as Record<string, string[]>) || {};
+  const options = (poll.options as string[]) || [];
+
+  // Check if user already voted on this option
+  const currentVoters = votes[optionIndex] || [];
+  const alreadyVoted = currentVoters.includes(userId);
+
+  if (alreadyVoted) {
+    // Remove vote
+    votes[optionIndex] = currentVoters.filter((id: string) => id !== userId);
+  } else {
+    // If not multiple choice, remove from all other options first
+    if (!poll.multiple_choice) {
+      for (const key of Object.keys(votes)) {
+        votes[key] = (votes[key] || []).filter((id: string) => id !== userId);
+      }
+    }
+    votes[optionIndex] = [...(votes[optionIndex] || []), userId];
+  }
+
+  // Update votes in DB
+  await adminClient.from("active_polls").update({ votes }).eq("id", poll.id);
+
+  // Calculate totals for embed update
+  const totalVotes = Object.values(votes).reduce((sum: number, arr: any) => sum + (arr?.length || 0), 0);
+  const emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
+  const endTime = Math.floor(new Date(poll.ends_at).getTime() / 1000);
+
+  const description = options.map((opt: string, i: number) => {
+    const count = (votes[String(i)] || []).length;
+    const pct = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
+    const bar = "█".repeat(Math.round(pct / 10)) + "░".repeat(10 - Math.round(pct / 10));
+    return `${emojis[i] || "▫️"} ${opt} — **${count} vote${count !== 1 ? "s" : ""}** (${pct}%)\n${bar}`;
+  }).join("\n");
+
+  const embed = {
+    title: `📊 ${poll.question}`,
+    description: `${description}\n\n⏰ Ends <t:${endTime}:R>${poll.multiple_choice ? "\n✅ Multiple choices allowed" : ""}`,
+    color: 0x5865f2,
+    footer: { text: `${totalVotes} total vote${totalVotes !== 1 ? "s" : ""}` },
+  };
+
+  // Update the original message embed
+  await fetch(`https://discord.com/api/v10/channels/${poll.channel_id}/messages/${messageId}`, {
+    method: "PATCH",
+    headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ embeds: [embed] }),
+  });
+
+  const action = alreadyVoted ? "removed" : "recorded";
+  return respond({ type: 4, data: { content: `✅ Vote ${action} for **${options[parseInt(optionIndex)] || "option"}**!`, flags: 64 } });
+}
+
+// ─── Build Poll Results Embed ─────────────────────────────────────
+function buildPollResultsEmbed(poll: any) {
+  const votes = (poll.votes as Record<string, string[]>) || {};
+  const options = (poll.options as string[]) || [];
+  const emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
+  const totalVotes = Object.values(votes).reduce((sum: number, arr: any) => sum + (arr?.length || 0), 0);
+
+  const description = options.map((opt: string, i: number) => {
+    const count = (votes[String(i)] || []).length;
+    const pct = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
+    const bar = "█".repeat(Math.round(pct / 10)) + "░".repeat(10 - Math.round(pct / 10));
+    return `${emojis[i] || "▫️"} **${opt}** — ${count} vote${count !== 1 ? "s" : ""} (${pct}%)\n${bar}`;
+  }).join("\n");
+
+  // Find winner(s)
+  let maxVotes = 0;
+  const winners: string[] = [];
+  options.forEach((opt: string, i: number) => {
+    const count = (votes[String(i)] || []).length;
+    if (count > maxVotes) { maxVotes = count; winners.length = 0; winners.push(opt); }
+    else if (count === maxVotes && count > 0) winners.push(opt);
+  });
+
+  const winnerText = winners.length > 0 ? `\n\n🏆 **Winner${winners.length > 1 ? "s" : ""}:** ${winners.join(", ")}` : "";
+
+  return {
+    title: `📊 Poll Results: ${poll.question}`,
+    description: `${description}${winnerText}\n\n📊 **Total Votes:** ${totalVotes}`,
+    color: 0x57f287,
+    footer: { text: "Poll ended" },
+    timestamp: new Date().toISOString(),
+  };
+}
+
+// ─── Auto-End Polls ───────────────────────────────────────────────
+async function autoEndPolls(adminClient: any) {
+  const now = new Date().toISOString();
+  const { data: expiredPolls } = await adminClient
+    .from("active_polls")
+    .select("*")
+    .eq("ended", false)
+    .lte("ends_at", now);
+
+  if (!expiredPolls?.length) {
+    return new Response(JSON.stringify({ ended: 0 }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  let endedCount = 0;
+  for (const poll of expiredPolls) {
+    try {
+      const { data: bot } = await adminClient.from("bots").select("*").eq("id", poll.bot_id).maybeSingle();
+      if (!bot) continue;
+      const token = atob(bot.token_encrypted);
+
+      const resultsEmbed = buildPollResultsEmbed(poll);
+
+      // Edit original message to show ended state with disabled buttons
+      const options = (poll.options as string[]) || [];
+      const emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
+      const components: any[] = [];
+      let currentRow: any = { type: 1, components: [] };
+      options.forEach((opt: string, i: number) => {
+        if (currentRow.components.length >= 5) {
+          components.push(currentRow);
+          currentRow = { type: 1, components: [] };
+        }
+        currentRow.components.push({
+          type: 2, style: 2,
+          label: `${emojis[i] || "▫️"} ${opt}`,
+          custom_id: `poll_ended_${poll.id}_${i}`,
+          disabled: true,
+        });
+      });
+      if (currentRow.components.length > 0) components.push(currentRow);
+
+      await fetch(`https://discord.com/api/v10/channels/${poll.channel_id}/messages/${poll.message_id}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          embeds: [{ ...resultsEmbed, title: `📊 POLL ENDED: ${poll.question}` }],
+          components,
+        }),
+      });
+
+      // Send results as a new message
+      await fetch(`https://discord.com/api/v10/channels/${poll.channel_id}/messages`, {
+        method: "POST",
+        headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ embeds: [resultsEmbed] }),
+      });
+
+      await adminClient.from("active_polls").update({ ended: true }).eq("id", poll.id);
+      endedCount++;
+    } catch (err) {
+      console.error("Error ending poll:", err);
+    }
+  }
+
+  return new Response(JSON.stringify({ ended: endedCount }), {
+    status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
 // ─── HTML Selector Extraction (lightweight, no DOM parser needed) ──
 function extractBySelector(html: string, selector: string): string {
   // Support common CSS selectors: .class, #id, tag
