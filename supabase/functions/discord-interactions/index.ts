@@ -863,13 +863,10 @@ async function handleModuleCommand(
     const config = modules.polls;
     const pollTemplates = (config.polls as any[]) || [];
 
-    // Check allowed roles
-    if (pollTemplates.length > 0) {
-      const template = pollTemplates[0];
-      const allowedRoles = (template.allowedRoles as string[]) || [];
-      if (allowedRoles.length > 0 && !allowedRoles.some((r: string) => memberRoles.includes(r))) {
-        return { type: 4, data: { content: "❌ You don't have permission to use poll commands.", flags: 64 } };
-      }
+    // Check allowed roles (module-level)
+    const pollAllowedRoles = (config.allowedRoles as string[]) || [];
+    if (pollAllowedRoles.length > 0 && !pollAllowedRoles.some((r: string) => memberRoles.includes(r))) {
+      return { type: 4, data: { content: "❌ You don't have permission to use poll commands.", flags: 64 } };
     }
 
     if (subCommand === "create" || !subCommand) {
