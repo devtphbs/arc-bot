@@ -154,6 +154,17 @@ Deno.serve(async (req) => {
         return json({ roles });
       }
 
+      case "fetch_guild_info": {
+        const guildId = bot.guild_id;
+        if (!guildId) return json({ member_count: null });
+        const res = await fetch(`https://discord.com/api/v10/guilds/${guildId}?with_counts=true`, {
+          headers: { Authorization: `Bot ${token}` },
+        });
+        if (!res.ok) return json({ member_count: null });
+        const guild = await res.json();
+        return json({ member_count: guild.approximate_member_count || guild.member_count || null, guild_name: guild.name });
+      }
+
       default:
         return json({ error: `Unknown action: ${action}` }, 400);
     }

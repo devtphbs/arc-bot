@@ -7,6 +7,7 @@ import { useBot } from "@/hooks/useBot";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import type { Json } from "@/integrations/supabase/types";
+import { DiscordEntityPicker } from "@/components/DiscordEntityPicker";
 
 interface WelcomeConfig {
   enabled: boolean;
@@ -25,26 +26,15 @@ interface LeaveConfig {
 }
 
 const DEFAULT_WELCOME: WelcomeConfig = {
-  enabled: false,
-  channelId: "",
-  message: "Welcome to the server, {user}! 🎉 We're glad to have you here.",
-  embedEnabled: false,
-  embedTitle: "Welcome!",
-  embedDescription: "Hey {user}, welcome to **{server}**! Check out the rules and have fun.",
-  embedColor: "#FFD700",
+  enabled: false, channelId: "", message: "Welcome to the server, {user}! 🎉 We're glad to have you here.",
+  embedEnabled: false, embedTitle: "Welcome!", embedDescription: "Hey {user}, welcome to **{server}**! Check out the rules and have fun.", embedColor: "#FFD700",
 };
 
-const DEFAULT_LEAVE: LeaveConfig = {
-  enabled: false,
-  channelId: "",
-  message: "{user} has left the server. Goodbye! 👋",
-};
+const DEFAULT_LEAVE: LeaveConfig = { enabled: false, channelId: "", message: "{user} has left the server. Goodbye! 👋" };
 
 const VARIABLES = [
-  { token: "{user}", desc: "Username" },
-  { token: "{mention}", desc: "@mention" },
-  { token: "{server}", desc: "Server name" },
-  { token: "{memberCount}", desc: "Member count" },
+  { token: "{user}", desc: "Username" }, { token: "{mention}", desc: "@mention" },
+  { token: "{server}", desc: "Server name" }, { token: "{memberCount}", desc: "Member count" },
 ];
 
 export default function DashboardWelcome() {
@@ -57,34 +47,19 @@ export default function DashboardWelcome() {
 
   useEffect(() => {
     if (!selectedBot) return;
-    supabase
-      .from("bot_modules")
-      .select("*")
-      .eq("bot_id", selectedBot.id)
-      .in("module_name", ["welcome", "leave"])
-      .then(({ data }) => {
-        data?.forEach((m) => {
-          const cfg = m.config as Record<string, unknown> | null;
-          if (m.module_name === "welcome" && cfg) {
-            setWelcome({
-              enabled: m.enabled,
-              channelId: (cfg.channelId as string) || (cfg.channel as string) || "",
-              message: (cfg.message as string) || DEFAULT_WELCOME.message,
-              embedEnabled: Boolean(cfg.embedEnabled),
-              embedTitle: (cfg.embedTitle as string) || "",
-              embedDescription: (cfg.embedDescription as string) || "",
-              embedColor: (cfg.embedColor as string) || "#FFD700",
-            });
-          }
-          if (m.module_name === "leave" && cfg) {
-            setLeave({
-              enabled: m.enabled,
-              channelId: (cfg.channelId as string) || (cfg.channel as string) || "",
-              message: (cfg.message as string) || DEFAULT_LEAVE.message,
-            });
-          }
-        });
+    supabase.from("bot_modules").select("*").eq("bot_id", selectedBot.id).in("module_name", ["welcome", "leave"]).then(({ data }) => {
+      data?.forEach((m) => {
+        const cfg = m.config as Record<string, unknown> | null;
+        if (m.module_name === "welcome" && cfg) {
+          setWelcome({ enabled: m.enabled, channelId: (cfg.channelId as string) || (cfg.channel as string) || "",
+            message: (cfg.message as string) || DEFAULT_WELCOME.message, embedEnabled: Boolean(cfg.embedEnabled),
+            embedTitle: (cfg.embedTitle as string) || "", embedDescription: (cfg.embedDescription as string) || "", embedColor: (cfg.embedColor as string) || "#FFD700" });
+        }
+        if (m.module_name === "leave" && cfg) {
+          setLeave({ enabled: m.enabled, channelId: (cfg.channelId as string) || (cfg.channel as string) || "", message: (cfg.message as string) || DEFAULT_LEAVE.message });
+        }
       });
+    });
   }, [selectedBot?.id]);
 
   const saveConfig = async () => {
@@ -95,32 +70,17 @@ export default function DashboardWelcome() {
         ["welcome", { channelId: welcome.channelId, message: welcome.message, embedEnabled: welcome.embedEnabled, embedTitle: welcome.embedTitle, embedDescription: welcome.embedDescription, embedColor: welcome.embedColor }, welcome.enabled],
         ["leave", { channelId: leave.channelId, message: leave.message }, leave.enabled],
       ] as [string, Record<string, unknown>, boolean][]) {
-        const { data: existing } = await supabase
-          .from("bot_modules")
-          .select("id")
-          .eq("bot_id", selectedBot.id)
-          .eq("module_name", moduleName)
-          .maybeSingle();
-        if (existing) {
-          await supabase.from("bot_modules").update({ enabled, config: config as unknown as Json }).eq("id", existing.id);
-        } else {
-          await supabase.from("bot_modules").insert({ bot_id: selectedBot.id, user_id: user.id, module_name: moduleName, enabled, config: config as unknown as Json });
-        }
+        const { data: existing } = await supabase.from("bot_modules").select("id").eq("bot_id", selectedBot.id).eq("module_name", moduleName).maybeSingle();
+        if (existing) { await supabase.from("bot_modules").update({ enabled, config: config as unknown as Json }).eq("id", existing.id); }
+        else { await supabase.from("bot_modules").insert({ bot_id: selectedBot.id, user_id: user.id, module_name: moduleName, enabled, config: config as unknown as Json }); }
       }
       toast.success("Welcome & leave settings saved!");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to save");
-    } finally {
-      setSaving(false);
-    }
+    } catch (err: any) { toast.error(err.message || "Failed to save"); }
+    finally { setSaving(false); }
   };
 
   const resolvePreview = (text: string) =>
-    text
-      .replace(/\{user\}/g, "NewUser")
-      .replace(/\{mention\}/g, "@NewUser")
-      .replace(/\{server\}/g, selectedBot?.bot_name || "My Server")
-      .replace(/\{memberCount\}/g, "128");
+    text.replace(/\{user\}/g, "NewUser").replace(/\{mention\}/g, "@NewUser").replace(/\{server\}/g, selectedBot?.bot_name || "My Server").replace(/\{memberCount\}/g, "128");
 
   if (!selectedBot) return <div className="p-6 lg:p-8"><p className="text-muted-foreground">Select a bot first.</p></div>;
 
@@ -141,24 +101,14 @@ export default function DashboardWelcome() {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-md bg-success/10"><UserPlus className="w-5 h-5 text-success" /></div>
-            <div>
-              <h2 className="text-sm font-medium text-card-foreground">Welcome Message</h2>
-              <p className="text-xs text-muted-foreground">Sent when a new member joins</p>
-            </div>
+            <div><h2 className="text-sm font-medium text-card-foreground">Welcome Message</h2><p className="text-xs text-muted-foreground">Sent when a new member joins</p></div>
           </div>
           <button onClick={() => setWelcome((p) => ({ ...p, enabled: !p.enabled }))} className={cn("w-10 h-5 rounded-full flex items-center transition-colors px-0.5", welcome.enabled ? "bg-success justify-end" : "bg-secondary justify-start")}>
             <div className="w-4 h-4 rounded-full bg-foreground/90" />
           </button>
         </div>
-
         <div className="space-y-4">
-          <div>
-            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Channel ID</label>
-            <div className="flex items-center gap-2">
-              <Hash className="w-4 h-4 text-muted-foreground" />
-              <input type="text" value={welcome.channelId} onChange={(e) => setWelcome((p) => ({ ...p, channelId: e.target.value }))} placeholder="123456789012345678" className="flex-1 px-3 py-2 rounded-md bg-background border border-border text-sm text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
-            </div>
-          </div>
+          <DiscordEntityPicker type="channel" value={welcome.channelId} onChange={(v) => setWelcome((p) => ({ ...p, channelId: v }))} label="Channel" />
           <div>
             <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Message</label>
             <textarea value={welcome.message} onChange={(e) => setWelcome((p) => ({ ...p, message: e.target.value }))} rows={3} className="w-full px-3 py-2 rounded-md bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none" />
@@ -184,23 +134,14 @@ export default function DashboardWelcome() {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-md bg-destructive/10"><UserMinus className="w-5 h-5 text-destructive" /></div>
-            <div>
-              <h2 className="text-sm font-medium text-card-foreground">Leave Message</h2>
-              <p className="text-xs text-muted-foreground">Sent when a member leaves</p>
-            </div>
+            <div><h2 className="text-sm font-medium text-card-foreground">Leave Message</h2><p className="text-xs text-muted-foreground">Sent when a member leaves</p></div>
           </div>
           <button onClick={() => setLeave((p) => ({ ...p, enabled: !p.enabled }))} className={cn("w-10 h-5 rounded-full flex items-center transition-colors px-0.5", leave.enabled ? "bg-success justify-end" : "bg-secondary justify-start")}>
             <div className="w-4 h-4 rounded-full bg-foreground/90" />
           </button>
         </div>
         <div className="space-y-4">
-          <div>
-            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Channel ID</label>
-            <div className="flex items-center gap-2">
-              <Hash className="w-4 h-4 text-muted-foreground" />
-              <input type="text" value={leave.channelId} onChange={(e) => setLeave((p) => ({ ...p, channelId: e.target.value }))} placeholder="123456789012345678" className="flex-1 px-3 py-2 rounded-md bg-background border border-border text-sm text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
-            </div>
-          </div>
+          <DiscordEntityPicker type="channel" value={leave.channelId} onChange={(v) => setLeave((p) => ({ ...p, channelId: v }))} label="Channel" />
           <div>
             <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Message</label>
             <textarea value={leave.message} onChange={(e) => setLeave((p) => ({ ...p, message: e.target.value }))} rows={2} className="w-full px-3 py-2 rounded-md bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none" />

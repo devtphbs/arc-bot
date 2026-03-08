@@ -6,7 +6,7 @@ import { useBot } from "@/hooks/useBot";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-
+import { DiscordEntityPicker } from "@/components/DiscordEntityPicker";
 interface ScheduledMessage {
   id: string;
   bot_id: string;
@@ -106,8 +106,7 @@ export default function DashboardScheduledMessages() {
             <h3 className="text-sm font-medium text-card-foreground">New Scheduled Message</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Channel ID</label>
-                <input type="text" value={channelId} onChange={(e) => setChannelId(e.target.value)} placeholder="123456789012345678" className="w-full px-3 py-2 rounded-md bg-background border border-border text-sm text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+                <DiscordEntityPicker type="channel" value={channelId} onChange={setChannelId} label="Channel" placeholder="Select channel" />
               </div>
               <div>
                 <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Send At</label>

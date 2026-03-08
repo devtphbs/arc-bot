@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
-
+import { DiscordEntityPicker } from "@/components/DiscordEntityPicker";
 interface TicketCategory {
   name: string;
   emoji: string;
@@ -183,14 +183,14 @@ export default function DashboardTickets() {
             </div>
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">📢 Panel Channel ID</label>
-                <input type="text" value={panelChannelId} onChange={(e) => setPanelChannelId(e.target.value)} placeholder="Channel where the ticket panel buttons appear" className="w-full px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
-                <p className="text-[10px] text-muted-foreground mt-1">Right-click a channel in Discord → Copy Channel ID</p>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">📢 Panel Channel</label>
+                <DiscordEntityPicker type="channel" value={panelChannelId} onChange={setPanelChannelId} placeholder="Channel where the ticket panel buttons appear" />
+                <p className="text-[10px] text-muted-foreground mt-1">The channel where the ticket panel with category buttons will be sent</p>
               </div>
               <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">📁 Ticket Category ID</label>
-                <input type="text" value={ticketCategoryId} onChange={(e) => setTicketCategoryId(e.target.value)} placeholder="Discord category to create ticket channels in" className="w-full px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
-                <p className="text-[10px] text-muted-foreground mt-1">Tickets will be created as channels inside this category (e.g. "Tickets" category). Right-click a category → Copy ID</p>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">📁 Ticket Category</label>
+                <DiscordEntityPicker type="category" value={ticketCategoryId} onChange={setTicketCategoryId} placeholder="Discord category to create ticket channels in" />
+                <p className="text-[10px] text-muted-foreground mt-1">Tickets will be created as channels inside this category</p>
               </div>
               <button onClick={deployPanel} disabled={deploying || !panelChannelId} className="flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50">
                 {deploying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Deploy Ticket Panel to Channel
@@ -210,12 +210,14 @@ export default function DashboardTickets() {
 
               {/* Support Role IDs (multiple) */}
               <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Support Role IDs</label>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Support Roles</label>
                 <p className="text-[10px] text-muted-foreground mb-2">These roles can see all tickets, get pinged on new tickets, and can claim tickets.</p>
                 <div className="space-y-2">
                   {supportRoleIds.map((roleId, i) => (
                     <div key={i} className="flex items-center gap-2">
-                      <input type="text" value={roleId} onChange={(e) => updateRoleId(i, e.target.value)} placeholder="Role ID" className="flex-1 px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+                      <div className="flex-1">
+                        <DiscordEntityPicker type="role" value={roleId} onChange={(v) => updateRoleId(i, v)} placeholder="Select support role" />
+                      </div>
                       {supportRoleIds.length > 1 && (
                         <button onClick={() => removeRoleId(i)} className="text-muted-foreground hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
                       )}
@@ -227,8 +229,7 @@ export default function DashboardTickets() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Log Channel ID</label>
-                  <input type="text" value={logChannelId} onChange={(e) => setLogChannelId(e.target.value)} placeholder="Channel for ticket transcripts" className="w-full px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+                  <DiscordEntityPicker type="channel" value={logChannelId} onChange={setLogChannelId} label="Log Channel" placeholder="Channel for ticket transcripts" />
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Max Tickets Per User</label>
