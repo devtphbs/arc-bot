@@ -117,6 +117,45 @@ Deno.serve(async (req) => {
         return json({ success: true });
       }
 
+      case "set_guild": {
+        const { guild_id } = await req.json().catch(() => ({}));
+        const body = await req.json().catch(() => ({}));
+        const gid = guild_id || body.guild_id;
+        await adminClient.from("bots").update({ guild_id: gid || null }).eq("id", bot_id);
+        return json({ success: true });
+      }
+
+      case "fetch_guilds": {
+        const res = await fetch("https://discord.com/api/v10/users/@me/guilds", {
+          headers: { Authorization: `Bot ${token}` },
+        });
+        if (!res.ok) return json({ error: "Failed to fetch guilds" });
+        const guilds = await res.json();
+        return json({ guilds });
+      }
+
+      case "fetch_channels": {
+        const targetGuild = bot.guild_id;
+        if (!targetGuild) return json({ error: "No main server set" }, 400);
+        const res = await fetch(`https://discord.com/api/v10/guilds/${targetGuild}/channels`, {
+          headers: { Authorization: `Bot ${token}` },
+        });
+        if (!res.ok) return json({ error: "Failed to fetch channels" });
+        const channels = await res.json();
+        return json({ channels });
+      }
+
+      case "fetch_roles": {
+        const targetGuild2 = bot.guild_id;
+        if (!targetGuild2) return json({ error: "No main server set" }, 400);
+        const res = await fetch(`https://discord.com/api/v10/guilds/${targetGuild2}/roles`, {
+          headers: { Authorization: `Bot ${token}` },
+        });
+        if (!res.ok) return json({ error: "Failed to fetch roles" });
+        const roles = await res.json();
+        return json({ roles });
+      }
+
       default:
         return json({ error: `Unknown action: ${action}` }, 400);
     }
