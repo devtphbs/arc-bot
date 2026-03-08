@@ -553,10 +553,28 @@ export default function DashboardCustomCommands() {
                   </motion.div>
                 )}
 
+                {/* Test Output */}
+                {testOutput && (
+                  <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="rounded-lg border border-primary/20 bg-secondary/50 overflow-hidden">
+                    <div className="px-4 py-2.5 border-b border-primary/10 flex items-center justify-between">
+                      <span className="text-xs font-medium text-foreground">📋 Test Results</span>
+                      <button onClick={() => setTestOutput(null)} className="text-muted-foreground hover:text-foreground"><X className="w-3.5 h-3.5" /></button>
+                    </div>
+                    <pre className="p-4 text-xs font-mono text-foreground whitespace-pre-wrap leading-relaxed">{testOutput}</pre>
+                  </motion.div>
+                )}
+
                 {/* Actions */}
                 <div className="flex items-center justify-end gap-2">
                   <button onClick={cancelEdit} className="px-4 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground transition-colors">
                     Cancel
+                  </button>
+                  <button
+                    onClick={testScript}
+                    disabled={testRunning}
+                    className="flex items-center gap-2 px-4 py-2 rounded-md bg-secondary border border-border text-sm font-medium text-foreground hover:bg-accent transition-colors"
+                  >
+                    {testRunning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />} Test
                   </button>
                   <button onClick={saveScript} className="flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
                     <Save className="w-4 h-4" /> Save Script
