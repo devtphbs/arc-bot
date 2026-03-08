@@ -38,30 +38,31 @@ export default function DashboardTickets() {
   useEffect(() => {
     if (!selectedBot) return;
     setLoading(true);
-    supabase
-      .from("ticket_config")
-      .select("*")
-      .eq("bot_id", selectedBot.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data) {
-          setEnabled(data.enabled);
-          setWelcomeMessage(data.welcome_message || "");
-          setMaxTickets(data.max_tickets_per_user);
-          setLogChannelId(data.log_channel_id || "");
-          setTicketCategoryId(data.category_id || "");
-          setCategories((data.ticket_categories as unknown as TicketCategory[]) || []);
-          // Load support role IDs (new array format + legacy single)
-          const configAny = data as any;
-          const ids: string[] = (configAny.support_role_ids as string[]) || [];
-          if (data.support_role_id && !ids.includes(data.support_role_id)) {
-            ids.unshift(data.support_role_id);
-          }
-          setSupportRoleIds(ids.length > 0 ? ids : [""]);
-          setPanelChannelId(configAny.panel_channel_id || "");
+    Promise.all([
+      supabase.from("ticket_config").select("*").eq("bot_id", selectedBot.id).maybeSingle(),
+      supabase.from("bot_modules").select("config").eq("bot_id", selectedBot.id).eq("module_name", "tickets").maybeSingle(),
+    ]).then(([{ data }, { data: mod }]) => {
+      if (data) {
+        setEnabled(data.enabled);
+        setWelcomeMessage(data.welcome_message || "");
+        setMaxTickets(data.max_tickets_per_user);
+        setLogChannelId(data.log_channel_id || "");
+        setTicketCategoryId(data.category_id || "");
+        setCategories((data.ticket_categories as unknown as TicketCategory[]) || []);
+        const configAny = data as any;
+        const ids: string[] = (configAny.support_role_ids as string[]) || [];
+        if (data.support_role_id && !ids.includes(data.support_role_id)) {
+          ids.unshift(data.support_role_id);
         }
-        setLoading(false);
-      });
+        setSupportRoleIds(ids.length > 0 ? ids : [""]);
+        setPanelChannelId(configAny.panel_channel_id || "");
+      }
+      if (mod?.config) {
+        const c = mod.config as { allowedRoles?: string[] };
+        setAllowedRoles(c.allowedRoles || []);
+      }
+      setLoading(false);
+    });
   }, [selectedBot]);
 
   const save = async () => {
