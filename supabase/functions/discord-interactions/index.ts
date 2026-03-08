@@ -994,3 +994,37 @@ async function handleReactionRoleButton(interaction: any, bot: any, token: strin
     return respond({ type: 4, data: { content: `✅ Added <@&${roleId}> to you!`, flags: 64 } });
   }
 }
+
+// ─── HTML Selector Extraction (lightweight, no DOM parser needed) ──
+function extractBySelector(html: string, selector: string): string {
+  // Support common CSS selectors: .class, #id, tag
+  let pattern: RegExp;
+
+  if (selector.startsWith("#")) {
+    // ID selector: #myId
+    const id = selector.slice(1).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    pattern = new RegExp(`id=["']${id}["'][^>]*>([\\s\\S]*?)<`, "i");
+  } else if (selector.startsWith(".")) {
+    // Class selector: .myClass
+    const cls = selector.slice(1).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    pattern = new RegExp(`class=["'][^"']*\\b${cls}\\b[^"']*["'][^>]*>([\\s\\S]*?)<`, "i");
+  } else {
+    // Tag selector: h1, p, span, etc.
+    const tag = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    pattern = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, "i");
+  }
+
+  const match = html.match(pattern);
+  if (!match) return "";
+
+  // Strip inner HTML tags and decode basic entities
+  return match[1]
+    .replace(/<[^>]*>/g, "")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ")
+    .trim();
+}
