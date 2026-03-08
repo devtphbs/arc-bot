@@ -236,6 +236,53 @@ Deno.serve(async (req) => {
           }
         }
 
+        // ─── String Utilities engine ───
+        const stringVars: Record<string, string> = {};
+        const lines = content.split("\n");
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+          if (!/^(cutAfter|cutBefore|replace|upper|lower|trim|length)\(/.test(trimmedLine)) continue;
+          
+          const storageMatch = trimmedLine.match(/=>\s*(\w+)\s*$/);
+          const varName = storageMatch?.[1];
+          let result = "";
+
+          // Helper to resolve vars in a string
+          const rv = (t: string) => {
+            t = t.replace(/\{user\}/g, `<@${interaction.member?.user?.id}>`);
+            t = t.replace(/\{user\.id\}/g, interaction.member?.user?.id || "");
+            t = t.replace(/\{user\.name\}/g, interaction.member?.user?.username || "");
+            t = t.replace(/\{channel\}/g, `<#${interaction.channel_id}>`);
+            t = t.replace(/\{channel\.id\}/g, interaction.channel_id || "");
+            t = t.replace(/\{server\.name\}/g, interaction.guild_id || "");
+            t = t.replace(/\{options\.(\w+)\}/g, (_: string, n: string) => optionsMap[n] !== undefined ? String(optionsMap[n]) : "");
+            t = t.replace(/\{scrape\.(\d+)\}/g, (_: string, i: string) => scrapeResults[parseInt(i)] ?? "");
+            t = t.replace(/\{scrapeImage\.(\d+)\}/g, (_: string, i: string) => scrapeImageResults[parseInt(i)] ?? "");
+            t = t.replace(/\{scrapeAttr\.(\d+)\}/g, (_: string, i: string) => scrapeAttrResults[parseInt(i)] ?? "");
+            // Resolve previously stored string vars
+            Object.entries(stringVars).forEach(([k, v]) => { t = t.replaceAll(`{${k}}`, v); });
+            return t;
+          };
+
+          const cutAfterM = trimmedLine.match(/cutAfter\(["'`](.*?)["'`]\s*,\s*["'`](.*?)["'`]\)/);
+          const cutBeforeM = trimmedLine.match(/cutBefore\(["'`](.*?)["'`]\s*,\s*["'`](.*?)["'`]\)/);
+          const replaceM = trimmedLine.match(/replace\(["'`](.*?)["'`]\s*,\s*["'`](.*?)["'`]\s*,\s*["'`](.*?)["'`]\)/);
+          const upperM = trimmedLine.match(/upper\(["'`](.*?)["'`]\)/);
+          const lowerM = trimmedLine.match(/lower\(["'`](.*?)["'`]\)/);
+          const trimM2 = trimmedLine.match(/trim\(["'`](.*?)["'`]\)/);
+          const lengthM = trimmedLine.match(/length\(["'`](.*?)["'`]\)/);
+
+          if (cutAfterM) { const t = rv(cutAfterM[1]); const i = t.indexOf(cutAfterM[2]); result = i >= 0 ? t.substring(0, i) : t; }
+          else if (cutBeforeM) { const t = rv(cutBeforeM[1]); const i = t.indexOf(cutBeforeM[2]); result = i >= 0 ? t.substring(i + cutBeforeM[2].length) : t; }
+          else if (replaceM) { result = rv(replaceM[1]).replaceAll(replaceM[2], replaceM[3]); }
+          else if (upperM) { result = rv(upperM[1]).toUpperCase(); }
+          else if (lowerM) { result = rv(lowerM[1]).toLowerCase(); }
+          else if (trimM2) { result = rv(trimM2[1]).trim(); }
+          else if (lengthM) { result = String(rv(lengthM[1]).length); }
+
+          if (varName) stringVars[varName] = result;
+        }
+
         // Extract reply() calls
         const replyMatch = content.match(/reply\(["'`](.+?)["'`]\)/s);
         let replyText = replyMatch ? replyMatch[1] : "Script executed!";
@@ -270,6 +317,9 @@ Deno.serve(async (req) => {
         replyText = replyText.replace(/\{options\.(\w+)\}/g, (_: string, name: string) => {
           return optionsMap[name] !== undefined ? String(optionsMap[name]) : "";
         });
+
+        // Replace string utility variables
+        Object.entries(stringVars).forEach(([k, v]) => { replyText = replyText.replaceAll(`{${k}}`, v); });
 
         // Truncate to Discord's 2000 char limit
         if (replyText.length > 2000) replyText = replyText.substring(0, 1997) + "...";
