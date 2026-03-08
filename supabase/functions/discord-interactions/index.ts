@@ -1262,6 +1262,8 @@ async function handleModuleCommand(
       const question = getOpt("question") || "No question";
       const optionsRaw = getOpt("options") || "";
       const durationStr = getOpt("duration") || (pollTemplates[0]?.duration || "1d");
+      const channelOpt = getOpt("channel");
+      const targetChannel = channelOpt || channelId;
       const multipleChoice = pollTemplates[0]?.multipleChoice || false;
 
       const opts = optionsRaw ? String(optionsRaw).split(",").map((o: string) => o.trim()).filter(Boolean) : ["Yes", "No"];
@@ -1295,7 +1297,7 @@ async function handleModuleCommand(
       });
       if (currentRow.components.length > 0) components.push(currentRow);
 
-      const msgRes = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+      const msgRes = await fetch(`https://discord.com/api/v10/channels/${targetChannel}/messages`, {
         method: "POST",
         headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ embeds: [embed], components }),
@@ -1309,7 +1311,7 @@ async function handleModuleCommand(
         await adminClient.from("active_polls").insert({
           bot_id: bot.id,
           message_id: msg.id,
-          channel_id: channelId,
+          channel_id: targetChannel,
           guild_id: guildId,
           question,
           options: opts,
