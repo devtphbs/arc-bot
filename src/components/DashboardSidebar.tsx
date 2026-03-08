@@ -1,5 +1,5 @@
 import {
-  LayoutDashboard, Terminal, Zap, Shield, RefreshCw, ScrollText, Settings, Bot, ChevronLeft, Plus, Circle,
+  LayoutDashboard, Terminal, Shield, RefreshCw, ScrollText, Settings, Bot, ChevronLeft, Plus, Circle,
   UserPlus, Heart, BarChart3, Trophy, Ticket, Palette, Medal, FileCode, Music, MessageSquare, Gift, Vote,
   Variable, Bell, Activity, DatabaseBackup, ClipboardList, Code2, CalendarClock, TrendingUp,
 } from "lucide-react";
