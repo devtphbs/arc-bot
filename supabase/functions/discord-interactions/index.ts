@@ -573,30 +573,45 @@ async function handleModuleCommand(
     const giveaways = (config.giveaways as any[]) || [];
 
     if (subCommand === "start") {
-      const prize = interaction.data?.options?.[0]?.options?.find((o: any) => o.name === "prize")?.value || "Amazing Prize";
-      const durationStr = interaction.data?.options?.[0]?.options?.find((o: any) => o.name === "duration")?.value || "1d";
-      const winners = interaction.data?.options?.[0]?.options?.find((o: any) => o.name === "winners")?.value || 1;
+      const getOpt = (name: string) => interaction.data?.options?.[0]?.options?.find((o: any) => o.name === name)?.value;
+      const prize = getOpt("prize") || "Amazing Prize";
+      const durationStr = getOpt("duration") || "1d";
+      const winners = getOpt("winners") || 1;
+      const colorOpt = getOpt("color");
+      const channelOpt = getOpt("channel");
+      const hostOpt = getOpt("host");
+      const winnerDm = getOpt("winner-dm") || "";
+      const requiredMsgs = getOpt("required-messages") || 0;
+      const bypassRoleOpt = getOpt("bypass-role");
+
+      const targetChannel = channelOpt || channelId;
 
       const template = giveaways.find((g: any) => g.prize === prize) || giveaways[0] || {};
       const durationSecs = parseDuration(String(durationStr));
       const endTime = Math.floor(Date.now() / 1000) + durationSecs;
-      const color = template.color ? parseInt(String(template.color).replace("#", ""), 16) : 0xffd700;
+      const color = colorOpt ? parseInt(String(colorOpt).replace("#", ""), 16) : (template.color ? parseInt(String(template.color).replace("#", ""), 16) : 0xffd700);
       const endColor = template.endColor || "#FF4444";
 
+      const roleReq = template.roleRequirement || "";
+      const bypassRole = bypassRoleOpt || template.bypassRole || "";
+      const reqMessages = requiredMsgs || template.requiredMessages || 0;
+
       const requirements: string[] = [];
-      if (template.roleRequirement) requirements.push(`🔒 Required Role: <@&${template.roleRequirement}>`);
-      if (template.requiredMessages > 0) requirements.push(`💬 Min ${template.requiredMessages} messages required`);
-      if (template.bypassRole) requirements.push(`⚡ Bypass Role: <@&${template.bypassRole}>`);
+      if (roleReq) requirements.push(`🔒 Required Role: <@&${roleReq}>`);
+      if (reqMessages > 0) requirements.push(`💬 Min ${reqMessages} messages required`);
+      if (bypassRole) requirements.push(`⚡ Bypass Role: <@&${bypassRole}>`);
+
+      const hostLine = hostOpt ? `\n👑 **Hosted by:** <@${hostOpt}>` : "";
 
       const embed = {
         title: "🎉 GIVEAWAY 🎉",
-        description: `**${prize}**\n\nClick the button below to enter!\n\n🏆 **Winners:** ${winners}\n⏰ **Ends:** <t:${endTime}:R>\n${requirements.length > 0 ? "\n" + requirements.join("\n") : ""}`,
+        description: `**${prize}**\n\nClick the button below to enter!\n\n🏆 **Winners:** ${winners}\n⏰ **Ends:** <t:${endTime}:R>${hostLine}\n${requirements.length > 0 ? "\n" + requirements.join("\n") : ""}`,
         color,
         footer: { text: `${winners} winner(s) • Ends` },
         timestamp: new Date(endTime * 1000).toISOString(),
       };
 
-      const msgRes = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+      const msgRes = await fetch(`https://discord.com/api/v10/channels/${targetChannel}/messages`, {
         method: "POST",
         headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -615,19 +630,18 @@ async function handleModuleCommand(
 
       if (msgRes.ok) {
         const sentMsg = await msgRes.json();
-        // Store active giveaway in DB
         await adminClient.from("active_giveaways").insert({
           bot_id: bot.id,
           message_id: sentMsg.id,
-          channel_id: channelId,
+          channel_id: targetChannel,
           guild_id: guildId,
           prize,
           winners_count: winners,
           ends_at: new Date(endTime * 1000).toISOString(),
-          color: template.color || "#FFD700",
+          color: colorOpt || template.color || "#FFD700",
           end_color: endColor,
         });
-        return { type: 4, data: { content: `🎉 Giveaway for **${prize}** started! Ends <t:${endTime}:R>`, flags: 64 } };
+        return { type: 4, data: { content: `🎉 Giveaway for **${prize}** started${targetChannel !== channelId ? ` in <#${targetChannel}>` : ""}! Ends <t:${endTime}:R>`, flags: 64 } };
       }
       return { type: 4, data: { content: "❌ Failed to create giveaway.", flags: 64 } };
     }

@@ -10,7 +10,7 @@ import type { Json } from "@/integrations/supabase/types";
 
 interface WelcomeConfig {
   enabled: boolean;
-  channel: string;
+  channelId: string;
   message: string;
   embedEnabled: boolean;
   embedTitle: string;
@@ -20,13 +20,13 @@ interface WelcomeConfig {
 
 interface LeaveConfig {
   enabled: boolean;
-  channel: string;
+  channelId: string;
   message: string;
 }
 
 const DEFAULT_WELCOME: WelcomeConfig = {
   enabled: false,
-  channel: "general",
+  channelId: "",
   message: "Welcome to the server, {user}! 🎉 We're glad to have you here.",
   embedEnabled: false,
   embedTitle: "Welcome!",
@@ -36,7 +36,7 @@ const DEFAULT_WELCOME: WelcomeConfig = {
 
 const DEFAULT_LEAVE: LeaveConfig = {
   enabled: false,
-  channel: "general",
+  channelId: "",
   message: "{user} has left the server. Goodbye! 👋",
 };
 
@@ -68,7 +68,7 @@ export default function DashboardWelcome() {
           if (m.module_name === "welcome" && cfg) {
             setWelcome({
               enabled: m.enabled,
-              channel: (cfg.channel as string) || "general",
+              channelId: (cfg.channelId as string) || (cfg.channel as string) || "",
               message: (cfg.message as string) || DEFAULT_WELCOME.message,
               embedEnabled: Boolean(cfg.embedEnabled),
               embedTitle: (cfg.embedTitle as string) || "",
@@ -79,7 +79,7 @@ export default function DashboardWelcome() {
           if (m.module_name === "leave" && cfg) {
             setLeave({
               enabled: m.enabled,
-              channel: (cfg.channel as string) || "general",
+              channelId: (cfg.channelId as string) || (cfg.channel as string) || "",
               message: (cfg.message as string) || DEFAULT_LEAVE.message,
             });
           }
@@ -92,8 +92,8 @@ export default function DashboardWelcome() {
     setSaving(true);
     try {
       for (const [moduleName, config, enabled] of [
-        ["welcome", { channel: welcome.channel, message: welcome.message, embedEnabled: welcome.embedEnabled, embedTitle: welcome.embedTitle, embedDescription: welcome.embedDescription, embedColor: welcome.embedColor }, welcome.enabled],
-        ["leave", { channel: leave.channel, message: leave.message }, leave.enabled],
+        ["welcome", { channelId: welcome.channelId, message: welcome.message, embedEnabled: welcome.embedEnabled, embedTitle: welcome.embedTitle, embedDescription: welcome.embedDescription, embedColor: welcome.embedColor }, welcome.enabled],
+        ["leave", { channelId: leave.channelId, message: leave.message }, leave.enabled],
       ] as [string, Record<string, unknown>, boolean][]) {
         const { data: existing } = await supabase
           .from("bot_modules")
@@ -153,10 +153,10 @@ export default function DashboardWelcome() {
 
         <div className="space-y-4">
           <div>
-            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Channel</label>
+            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Channel ID</label>
             <div className="flex items-center gap-2">
               <Hash className="w-4 h-4 text-muted-foreground" />
-              <input type="text" value={welcome.channel} onChange={(e) => setWelcome((p) => ({ ...p, channel: e.target.value }))} placeholder="welcome" className="flex-1 px-3 py-2 rounded-md bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+              <input type="text" value={welcome.channelId} onChange={(e) => setWelcome((p) => ({ ...p, channelId: e.target.value }))} placeholder="123456789012345678" className="flex-1 px-3 py-2 rounded-md bg-background border border-border text-sm text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
             </div>
           </div>
           <div>
@@ -195,10 +195,10 @@ export default function DashboardWelcome() {
         </div>
         <div className="space-y-4">
           <div>
-            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Channel</label>
+            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Channel ID</label>
             <div className="flex items-center gap-2">
               <Hash className="w-4 h-4 text-muted-foreground" />
-              <input type="text" value={leave.channel} onChange={(e) => setLeave((p) => ({ ...p, channel: e.target.value }))} placeholder="goodbye" className="flex-1 px-3 py-2 rounded-md bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+              <input type="text" value={leave.channelId} onChange={(e) => setLeave((p) => ({ ...p, channelId: e.target.value }))} placeholder="123456789012345678" className="flex-1 px-3 py-2 rounded-md bg-background border border-border text-sm text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
             </div>
           </div>
           <div>

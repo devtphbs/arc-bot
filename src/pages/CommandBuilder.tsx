@@ -355,6 +355,7 @@ export default function CommandBuilder() {
             <ArrowLeft className="w-4 h-4" />
           </button>
           <span className="text-sm font-medium text-card-foreground">{editId ? "Edit Command" : "New Command"}</span>
+          {selectedBot && <span className="text-[10px] px-2 py-0.5 rounded bg-primary/10 text-primary font-medium">Saving to: {selectedBot.bot_name}</span>}
           <div className="flex items-center gap-1 ml-2">
             <button onClick={() => setShowSettings(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
               <Settings className="w-3.5 h-3.5" /> Settings
