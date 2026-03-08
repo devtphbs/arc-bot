@@ -25,6 +25,7 @@ export default function DashboardTickets() {
   const [logChannelId, setLogChannelId] = useState("");
   const [panelChannelId, setPanelChannelId] = useState("");
   const [ticketCategoryId, setTicketCategoryId] = useState("");
+  const [allowedRoles, setAllowedRoles] = useState<string[]>([]);
   const [categories, setCategories] = useState<TicketCategory[]>([
     { name: "General Support", emoji: "🎫", description: "General questions and help" },
     { name: "Bug Report", emoji: "🐛", description: "Report a bug" },
@@ -37,30 +38,31 @@ export default function DashboardTickets() {
   useEffect(() => {
     if (!selectedBot) return;
     setLoading(true);
-    supabase
-      .from("ticket_config")
-      .select("*")
-      .eq("bot_id", selectedBot.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data) {
-          setEnabled(data.enabled);
-          setWelcomeMessage(data.welcome_message || "");
-          setMaxTickets(data.max_tickets_per_user);
-          setLogChannelId(data.log_channel_id || "");
-          setTicketCategoryId(data.category_id || "");
-          setCategories((data.ticket_categories as unknown as TicketCategory[]) || []);
-          // Load support role IDs (new array format + legacy single)
-          const configAny = data as any;
-          const ids: string[] = (configAny.support_role_ids as string[]) || [];
-          if (data.support_role_id && !ids.includes(data.support_role_id)) {
-            ids.unshift(data.support_role_id);
-          }
-          setSupportRoleIds(ids.length > 0 ? ids : [""]);
-          setPanelChannelId(configAny.panel_channel_id || "");
+    Promise.all([
+      supabase.from("ticket_config").select("*").eq("bot_id", selectedBot.id).maybeSingle(),
+      supabase.from("bot_modules").select("config").eq("bot_id", selectedBot.id).eq("module_name", "tickets").maybeSingle(),
+    ]).then(([{ data }, { data: mod }]) => {
+      if (data) {
+        setEnabled(data.enabled);
+        setWelcomeMessage(data.welcome_message || "");
+        setMaxTickets(data.max_tickets_per_user);
+        setLogChannelId(data.log_channel_id || "");
+        setTicketCategoryId(data.category_id || "");
+        setCategories((data.ticket_categories as unknown as TicketCategory[]) || []);
+        const configAny = data as any;
+        const ids: string[] = (configAny.support_role_ids as string[]) || [];
+        if (data.support_role_id && !ids.includes(data.support_role_id)) {
+          ids.unshift(data.support_role_id);
         }
-        setLoading(false);
-      });
+        setSupportRoleIds(ids.length > 0 ? ids : [""]);
+        setPanelChannelId(configAny.panel_channel_id || "");
+      }
+      if (mod?.config) {
+        const c = mod.config as { allowedRoles?: string[] };
+        setAllowedRoles(c.allowedRoles || []);
+      }
+      setLoading(false);
+    });
   }, [selectedBot]);
 
   const save = async () => {
@@ -85,6 +87,14 @@ export default function DashboardTickets() {
         await supabase.from("ticket_config").update(payload).eq("id", existing.id);
       } else {
         await supabase.from("ticket_config").insert(payload);
+      }
+      // Save allowed roles in bot_modules
+      const modConfig = { allowedRoles } as unknown as import("@/integrations/supabase/types").Json;
+      const { data: existingMod } = await supabase.from("bot_modules").select("id").eq("bot_id", selectedBot.id).eq("module_name", "tickets").maybeSingle();
+      if (existingMod) {
+        await supabase.from("bot_modules").update({ config: modConfig }).eq("id", existingMod.id);
+      } else {
+        await supabase.from("bot_modules").insert({ bot_id: selectedBot.id, user_id: user.id, module_name: "tickets", enabled: true, config: modConfig });
       }
       toast.success("Ticket config saved!");
     } catch (err: any) {
@@ -173,6 +183,21 @@ export default function DashboardTickets() {
                 <div className={`w-5 h-5 rounded-full bg-background absolute top-0.5 transition-transform ${enabled ? "translate-x-6" : "translate-x-0.5"}`} />
               </button>
             </div>
+          </motion.div>
+
+          {/* Allowed Roles for /ticket commands */}
+          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.03 }} className="rounded-lg border border-border bg-card p-5">
+            <DiscordEntityPicker
+              type="role"
+              value=""
+              onChange={() => {}}
+              multiple
+              values={allowedRoles}
+              onChangeMultiple={setAllowedRoles}
+              label="🔒 Allowed Roles (who can use /ticket commands)"
+              placeholder="Leave empty = everyone"
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">Restrict who can open/close tickets via slash commands. Panel buttons are always available. Empty = anyone.</p>
           </motion.div>
 
           {/* Channel & Category Settings */}

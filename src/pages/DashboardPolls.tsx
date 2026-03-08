@@ -16,7 +16,6 @@ interface PollTemplate {
   duration: string;
   multipleChoice: boolean;
   anonymous: boolean;
-  allowedRoles: string[];
 }
 
 const createId = () => crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -47,6 +46,7 @@ export default function DashboardPolls() {
   const { selectedBot } = useBot();
   const { user } = useAuth();
   const [polls, setPolls] = useState<PollTemplate[]>([]);
+  const [allowedRoles, setAllowedRoles] = useState<string[]>([]);
   const [enabled, setEnabled] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -54,14 +54,15 @@ export default function DashboardPolls() {
     if (!selectedBot) return;
     supabase.from("bot_modules").select("*").eq("bot_id", selectedBot.id).eq("module_name", "polls").maybeSingle().then(({ data }) => {
       if (data?.config) {
-        const c = data.config as { polls?: PollTemplate[] };
+        const c = data.config as { polls?: PollTemplate[]; allowedRoles?: string[] };
         setPolls(c.polls || []);
+        setAllowedRoles(c.allowedRoles || []);
         setEnabled(data.enabled);
       }
     });
   }, [selectedBot?.id]);
 
-  const addPoll = () => setPolls((p) => [...p, { id: createId(), question: "", options: ["Option 1", "Option 2"], duration: "1d", multipleChoice: false, anonymous: false, allowedRoles: [] }]);
+  const addPoll = () => setPolls((p) => [...p, { id: createId(), question: "", options: ["Option 1", "Option 2"], duration: "1d", multipleChoice: false, anonymous: false }]);
   const updatePoll = (id: string, updates: Partial<PollTemplate>) => setPolls((p) => p.map((pl) => (pl.id === id ? { ...pl, ...updates } : pl)));
   const deletePoll = (id: string) => setPolls((p) => p.filter((pl) => pl.id !== id));
   const addOption = (id: string) => setPolls((p) => p.map((pl) => (pl.id === id ? { ...pl, options: [...pl.options, `Option ${pl.options.length + 1}`] } : pl)));
@@ -79,7 +80,7 @@ export default function DashboardPolls() {
     if (!selectedBot || !user) return;
     setSaving(true);
     try {
-      const config = { polls } as unknown as Json;
+      const config = { polls, allowedRoles } as unknown as Json;
       const { data: existing } = await supabase.from("bot_modules").select("id").eq("bot_id", selectedBot.id).eq("module_name", "polls").maybeSingle();
       if (existing) {
         await supabase.from("bot_modules").update({ enabled, config }).eq("id", existing.id);
@@ -137,6 +138,21 @@ export default function DashboardPolls() {
         </div>
       </motion.div>
 
+      {/* Allowed Roles */}
+      <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="mt-4 rounded-lg border border-border bg-card p-4">
+        <DiscordEntityPicker
+          type="role"
+          value=""
+          onChange={() => {}}
+          multiple
+          values={allowedRoles}
+          onChangeMultiple={setAllowedRoles}
+          label="🔒 Allowed Roles (who can use /poll commands)"
+          placeholder="Leave empty = everyone"
+        />
+        <p className="text-[10px] text-muted-foreground mt-1">Restrict who can create, end, and view poll results. Empty = anyone.</p>
+      </motion.div>
+
       <div className="space-y-4 mt-6">
         {polls.map((poll, i) => (
           <motion.div key={poll.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }} className="rounded-lg border border-border bg-card p-5">
@@ -186,20 +202,6 @@ export default function DashboardPolls() {
                 </div>
               </div>
 
-              {/* Allowed Roles */}
-              <div>
-                <DiscordEntityPicker
-                  type="role"
-                  value=""
-                  onChange={() => {}}
-                  multiple
-                  values={poll.allowedRoles || []}
-                  onChangeMultiple={(v) => updatePoll(poll.id, { allowedRoles: v })}
-                  label="🔒 Allowed Roles (who can use /poll)"
-                  placeholder="Leave empty = everyone"
-                />
-                <p className="text-[10px] text-muted-foreground mt-1">Restrict who can create polls with this command. Empty = anyone.</p>
-              </div>
             </div>
 
             {/* Discord Preview */}
