@@ -5,7 +5,7 @@ import {
   ArrowLeft, Save, Loader2, Play, Search, GripVertical, Trash2, Plus, Settings, BookOpen,
   MessageSquare, Code, AlertTriangle, Clock, Zap, AlertCircle, Palette, MousePointerClick,
   ChevronDown, X, UserMinus, UserPlus, Hash, AtSign, ShieldCheck, Volume2, Repeat, Send,
-  Eye, EyeOff, GitBranch, Timer, Database, Globe, Lock
+  Eye, EyeOff, GitBranch, Timer, Database, Globe, Lock, Users, BarChart3, Info, Calculator
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -86,6 +86,16 @@ const BLOCK_CATALOG: { category: string; items: { type: BlockType; label: string
       { type: "create_thread", label: "Create Thread", description: "Create a new thread in a channel", icon: Globe },
     ],
   },
+  {
+    category: "Server Info",
+    items: [
+      { type: "member_count", label: "Member Count", description: "Get the total number of members in the server", icon: Users },
+      { type: "channel_count", label: "Channel Count", description: "Get the total number of channels", icon: BarChart3 },
+      { type: "server_info", label: "Server Info", description: "Get server name, icon, owner, and creation date", icon: Info },
+      { type: "user_info", label: "User Info", description: "Get info about the command user (join date, roles, etc.)", icon: Users },
+      { type: "math", label: "Math Expression", description: "Calculate a math expression (e.g. {member_count} + 10)", icon: Calculator },
+    ],
+  },
 ];
 
 const BLOCK_TEMPLATES = [
@@ -137,6 +147,11 @@ const BLOCK_STYLES: Record<BlockType, { border: string; bg: string; text: string
   check_permission: { border: "border-l-warning", bg: "bg-warning/5", text: "text-warning", icon: Lock },
   check_channel: { border: "border-l-warning", bg: "bg-warning/5", text: "text-warning", icon: Hash },
   cooldown_check: { border: "border-l-warning", bg: "bg-warning/5", text: "text-warning", icon: Clock },
+  member_count: { border: "border-l-info", bg: "bg-info/5", text: "text-info", icon: Users },
+  channel_count: { border: "border-l-info", bg: "bg-info/5", text: "text-info", icon: BarChart3 },
+  server_info: { border: "border-l-info", bg: "bg-info/5", text: "text-info", icon: Info },
+  user_info: { border: "border-l-info", bg: "bg-info/5", text: "text-info", icon: Users },
+  math: { border: "border-l-accent", bg: "bg-accent/10", text: "text-accent-foreground", icon: Calculator },
 };
 
 function CanvasBlock({ block, onUpdate, onDelete }: { block: CommandBlock; onUpdate: (id: string, u: Partial<CommandBlock>) => void; onDelete: (id: string) => void }) {
