@@ -16,7 +16,6 @@ interface PollTemplate {
   duration: string;
   multipleChoice: boolean;
   anonymous: boolean;
-  allowedRoles: string[];
 }
 
 const createId = () => crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
