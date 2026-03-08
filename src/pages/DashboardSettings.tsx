@@ -291,9 +291,9 @@ export default function DashboardSettings() {
           {/* Bot Token */}
           <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="rounded-lg border border-border bg-card p-5">
             <div className="flex items-center gap-3 mb-4"><Key className="w-4 h-4 text-primary" /><h2 className="text-sm font-medium text-card-foreground">Bot Token</h2></div>
-            <div className="flex gap-3">
-              <input type="password" value="••••••••••••••••••••••••••••" readOnly className="flex-1 px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground font-mono focus:outline-none" />
-              <button className="px-4 py-2.5 rounded-md bg-secondary text-secondary-foreground text-sm hover:bg-accent transition-colors">Regenerate</button>
+            <div className="flex gap-2 flex-col sm:flex-row">
+              <input type="password" value="••••••••••••••••••••••••••••" readOnly className="flex-1 min-w-0 px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground font-mono focus:outline-none" />
+              <button className="px-4 py-2.5 rounded-md bg-secondary text-secondary-foreground text-sm hover:bg-accent transition-colors shrink-0">Regenerate</button>
             </div>
             <p className="text-xs text-muted-foreground mt-2">Your token is encrypted and never exposed. To reset, regenerate in the Discord Developer Portal.</p>
           </motion.div>
