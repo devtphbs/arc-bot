@@ -46,9 +46,9 @@ export default function DashboardLeaderboard() {
   const xpForLevel = (lvl: number) => 5 * lvl * lvl + 50 * lvl + 100;
 
   const getRankIcon = (index: number) => {
-    if (index === 0) return <Crown className="w-5 h-5 text-yellow-500" />;
-    if (index === 1) return <Medal className="w-5 h-5 text-gray-400" />;
-    if (index === 2) return <Medal className="w-5 h-5 text-amber-600" />;
+    if (index === 0) return <Crown className="w-5 h-5 text-primary" />;
+    if (index === 1) return <Medal className="w-5 h-5 text-muted-foreground" />;
+    if (index === 2) return <Medal className="w-5 h-5 text-accent-foreground" />;
     return <span className="w-5 h-5 flex items-center justify-center text-xs font-bold text-muted-foreground">#{index + 1}</span>;
   };
 
@@ -110,9 +110,9 @@ export default function DashboardLeaderboard() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.02 }}
                 className={`grid grid-cols-[40px_1fr_80px_100px_1fr] gap-3 items-center px-4 py-3 rounded-lg border transition-colors ${
-                  i === 0 ? "border-yellow-500/30 bg-yellow-500/5" :
-                  i === 1 ? "border-gray-400/20 bg-gray-400/5" :
-                  i === 2 ? "border-amber-600/20 bg-amber-600/5" :
+                  i === 0 ? "border-primary/30 bg-primary/5" :
+                  i === 1 ? "border-muted-foreground/20 bg-muted/30" :
+                  i === 2 ? "border-accent/30 bg-accent/10" :
                   "border-border bg-card"
                 }`}
               >
