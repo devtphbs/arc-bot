@@ -86,7 +86,7 @@ export default function DashboardGiveaways() {
     if (!selectedBot || !user) return;
     setSaving(true);
     try {
-      const config = { giveaways } as unknown as Json;
+      const config = { giveaways, allowedRoles } as unknown as Json;
       const { data: existing } = await supabase.from("bot_modules").select("id").eq("bot_id", selectedBot.id).eq("module_name", "giveaways").maybeSingle();
       if (existing) {
         await supabase.from("bot_modules").update({ enabled, config }).eq("id", existing.id);
