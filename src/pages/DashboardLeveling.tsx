@@ -21,9 +21,11 @@ export default function DashboardLeveling() {
   const [xpPerMessage, setXpPerMessage] = useState(15);
   const [xpCooldown, setXpCooldown] = useState(60);
   const [levelUpMessage, setLevelUpMessage] = useState("Congratulations {user}, you reached level {level}!");
+  const [levelUpChannel, setLevelUpChannel] = useState("");
+  const [ignoredChannels, setIgnoredChannels] = useState("");
+  const [ignoredRoles, setIgnoredRoles] = useState("");
   const [roleRewards, setRoleRewards] = useState<RoleReward[]>([]);
   const [newLevel, setNewLevel] = useState("");
-  const [newRoleName, setNewRoleName] = useState("");
   const [newRoleId, setNewRoleId] = useState("");
 
   useEffect(() => {
@@ -40,6 +42,9 @@ export default function DashboardLeveling() {
           setXpPerMessage(data.xp_per_message);
           setXpCooldown(data.xp_cooldown);
           setLevelUpMessage(data.level_up_message || "");
+          setLevelUpChannel(data.level_up_channel || "");
+          setIgnoredChannels(((data.ignored_channels as string[]) || []).join(", "));
+          setIgnoredRoles(((data.ignored_roles as string[]) || []).join(", "));
           setRoleRewards((data.role_rewards as unknown as RoleReward[]) || []);
         }
         setLoading(false);
@@ -57,6 +62,9 @@ export default function DashboardLeveling() {
         xp_per_message: xpPerMessage,
         xp_cooldown: xpCooldown,
         level_up_message: levelUpMessage,
+        level_up_channel: levelUpChannel || null,
+        ignored_channels: ignoredChannels.split(",").map(s => s.trim()).filter(Boolean) as any,
+        ignored_roles: ignoredRoles.split(",").map(s => s.trim()).filter(Boolean) as any,
         role_rewards: roleRewards as any,
       };
       const { data: existing } = await supabase.from("leveling_config").select("id").eq("bot_id", selectedBot.id).maybeSingle();
@@ -74,10 +82,9 @@ export default function DashboardLeveling() {
   };
 
   const addReward = () => {
-    if (!newLevel || !newRoleName) return;
-    setRoleRewards([...roleRewards, { level: parseInt(newLevel), role_id: newRoleId || newRoleName, role_name: newRoleName }]);
+    if (!newLevel || !newRoleId) return;
+    setRoleRewards([...roleRewards, { level: parseInt(newLevel), role_id: newRoleId, role_name: newRoleId }]);
     setNewLevel("");
-    setNewRoleName("");
     setNewRoleId("");
   };
 
@@ -129,6 +136,20 @@ export default function DashboardLeveling() {
               <input type="text" value={levelUpMessage} onChange={(e) => setLevelUpMessage(e.target.value)} className="w-full px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
               <p className="text-[10px] text-muted-foreground mt-1.5">Variables: <code className="font-mono text-primary">{'{user}'}</code> <code className="font-mono text-primary">{'{level}'}</code> <code className="font-mono text-primary">{'{xp}'}</code></p>
             </div>
+            <div className="mt-4">
+              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Level Up Channel ID</label>
+              <input type="text" value={levelUpChannel} onChange={(e) => setLevelUpChannel(e.target.value)} placeholder="Leave empty to use same channel" className="w-full px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Ignored Channel IDs</label>
+                <input type="text" value={ignoredChannels} onChange={(e) => setIgnoredChannels(e.target.value)} placeholder="Comma-separated IDs" className="w-full px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Ignored Role IDs</label>
+                <input type="text" value={ignoredRoles} onChange={(e) => setIgnoredRoles(e.target.value)} placeholder="Comma-separated IDs" className="w-full px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+              </div>
+            </div>
 
             {/* XP Table Preview */}
             <div className="mt-4 p-3 rounded-md bg-background border border-border">
@@ -153,7 +174,7 @@ export default function DashboardLeveling() {
               <div key={i} className="flex items-center justify-between py-2 px-3 rounded-md bg-background border border-border mb-2">
                 <div className="flex items-center gap-3">
                   <span className="text-xs font-bold text-primary">Level {r.level}</span>
-                  <span className="text-sm text-card-foreground">→ @{r.role_name}</span>
+                  <span className="text-sm text-card-foreground font-mono">→ {r.role_id}</span>
                 </div>
                 <button onClick={() => removeReward(i)} className="text-muted-foreground hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
               </div>
@@ -165,12 +186,8 @@ export default function DashboardLeveling() {
                 <input type="number" value={newLevel} onChange={(e) => setNewLevel(e.target.value)} placeholder="5" className="w-20 px-2 py-2 rounded-md bg-background border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
               </div>
               <div className="flex-1">
-                <label className="text-[10px] text-muted-foreground block mb-1">Role Name</label>
-                <input type="text" value={newRoleName} onChange={(e) => setNewRoleName(e.target.value)} placeholder="Member+" className="w-full px-2 py-2 rounded-md bg-background border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
-              </div>
-              <div className="flex-1">
-                <label className="text-[10px] text-muted-foreground block mb-1">Role ID (optional)</label>
-                <input type="text" value={newRoleId} onChange={(e) => setNewRoleId(e.target.value)} placeholder="123456789" className="w-full px-2 py-2 rounded-md bg-background border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+                <label className="text-[10px] text-muted-foreground block mb-1">Role ID</label>
+                <input type="text" value={newRoleId} onChange={(e) => setNewRoleId(e.target.value)} placeholder="123456789012345678" className="w-full px-2 py-2 rounded-md bg-background border border-border text-sm text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-ring" />
               </div>
               <button onClick={addReward} className="px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm hover:opacity-90"><Plus className="w-4 h-4" /></button>
             </div>
