@@ -185,6 +185,21 @@ export default function DashboardTickets() {
             </div>
           </motion.div>
 
+          {/* Allowed Roles for /ticket commands */}
+          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.03 }} className="rounded-lg border border-border bg-card p-5">
+            <DiscordEntityPicker
+              type="role"
+              value=""
+              onChange={() => {}}
+              multiple
+              values={allowedRoles}
+              onChangeMultiple={setAllowedRoles}
+              label="🔒 Allowed Roles (who can use /ticket commands)"
+              placeholder="Leave empty = everyone"
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">Restrict who can open/close tickets via slash commands. Panel buttons are always available. Empty = anyone.</p>
+          </motion.div>
+
           {/* Channel & Category Settings */}
           <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="rounded-lg border border-border bg-card p-5">
             <div className="flex items-center gap-3 mb-4">
