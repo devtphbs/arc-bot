@@ -338,6 +338,53 @@ export type Database = {
           },
         ]
       }
+      custom_scripts: {
+        Row: {
+          bot_id: string
+          created_at: string
+          description: string | null
+          enabled: boolean
+          id: string
+          name: string
+          script_code: string
+          trigger_command: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bot_id: string
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          name: string
+          script_code?: string
+          trigger_command?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bot_id?: string
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          name?: string
+          script_code?: string
+          trigger_command?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_scripts_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       downtime_alerts: {
         Row: {
           alert_type: string
