@@ -646,6 +646,11 @@ async function handleModuleCommand(
     const config = modules.giveaways;
     const giveaways = (config.giveaways as any[]) || [];
 
+    // Check allowed roles for giveaway commands
+    const giveawayAllowedRoles = (config.allowedRoles as string[]) || [];
+    if (giveawayAllowedRoles.length > 0 && !giveawayAllowedRoles.some((r: string) => memberRoles.includes(r))) {
+      return { type: 4, data: { content: "❌ You don't have permission to use giveaway commands.", flags: 64 } };
+    }
     if (subCommand === "start") {
       const getOpt = (name: string) => interaction.data?.options?.[0]?.options?.find((o: any) => o.name === name)?.value;
       const prize = getOpt("prize") || "Amazing Prize";
