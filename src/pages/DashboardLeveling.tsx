@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
+import { DiscordEntityPicker } from "@/components/DiscordEntityPicker";
 
 interface RoleReward {
   level: number;
@@ -22,8 +23,8 @@ export default function DashboardLeveling() {
   const [xpCooldown, setXpCooldown] = useState(60);
   const [levelUpMessage, setLevelUpMessage] = useState("Congratulations {user}, you reached level {level}!");
   const [levelUpChannel, setLevelUpChannel] = useState("");
-  const [ignoredChannels, setIgnoredChannels] = useState("");
-  const [ignoredRoles, setIgnoredRoles] = useState("");
+  const [ignoredChannels, setIgnoredChannels] = useState<string[]>([]);
+  const [ignoredRoles, setIgnoredRoles] = useState<string[]>([]);
   const [roleRewards, setRoleRewards] = useState<RoleReward[]>([]);
   const [newLevel, setNewLevel] = useState("");
   const [newRoleId, setNewRoleId] = useState("");
@@ -43,8 +44,8 @@ export default function DashboardLeveling() {
           setXpCooldown(data.xp_cooldown);
           setLevelUpMessage(data.level_up_message || "");
           setLevelUpChannel(data.level_up_channel || "");
-          setIgnoredChannels(((data.ignored_channels as string[]) || []).join(", "));
-          setIgnoredRoles(((data.ignored_roles as string[]) || []).join(", "));
+          setIgnoredChannels((data.ignored_channels as string[]) || []);
+          setIgnoredRoles((data.ignored_roles as string[]) || []);
           setRoleRewards((data.role_rewards as unknown as RoleReward[]) || []);
         }
         setLoading(false);
@@ -63,8 +64,8 @@ export default function DashboardLeveling() {
         xp_cooldown: xpCooldown,
         level_up_message: levelUpMessage,
         level_up_channel: levelUpChannel || null,
-        ignored_channels: ignoredChannels.split(",").map(s => s.trim()).filter(Boolean) as any,
-        ignored_roles: ignoredRoles.split(",").map(s => s.trim()).filter(Boolean) as any,
+        ignored_channels: ignoredChannels as any,
+        ignored_roles: ignoredRoles as any,
         role_rewards: roleRewards as any,
       };
       const { data: existing } = await supabase.from("leveling_config").select("id").eq("bot_id", selectedBot.id).maybeSingle();
@@ -105,7 +106,6 @@ export default function DashboardLeveling() {
         <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
       ) : (
         <div className="space-y-6 mt-8">
-          {/* Enable Toggle */}
           <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="rounded-lg border border-border bg-card p-5">
             <div className="flex items-center justify-between">
               <div>
@@ -118,7 +118,6 @@ export default function DashboardLeveling() {
             </div>
           </motion.div>
 
-          {/* XP Settings */}
           <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="rounded-lg border border-border bg-card p-5">
             <div className="flex items-center gap-3 mb-4"><Star className="w-4 h-4 text-primary" /><h2 className="text-sm font-medium text-card-foreground">XP Settings</h2></div>
             <div className="grid grid-cols-2 gap-4">
@@ -137,21 +136,13 @@ export default function DashboardLeveling() {
               <p className="text-[10px] text-muted-foreground mt-1.5">Variables: <code className="font-mono text-primary">{'{user}'}</code> <code className="font-mono text-primary">{'{level}'}</code> <code className="font-mono text-primary">{'{xp}'}</code></p>
             </div>
             <div className="mt-4">
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Level Up Channel ID</label>
-              <input type="text" value={levelUpChannel} onChange={(e) => setLevelUpChannel(e.target.value)} placeholder="Leave empty to use same channel" className="w-full px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+              <DiscordEntityPicker type="channel" value={levelUpChannel} onChange={setLevelUpChannel} label="Level Up Channel" placeholder="Leave empty to use same channel" />
             </div>
             <div className="mt-4 grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Ignored Channel IDs</label>
-                <input type="text" value={ignoredChannels} onChange={(e) => setIgnoredChannels(e.target.value)} placeholder="Comma-separated IDs" className="w-full px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Ignored Role IDs</label>
-                <input type="text" value={ignoredRoles} onChange={(e) => setIgnoredRoles(e.target.value)} placeholder="Comma-separated IDs" className="w-full px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
-              </div>
+              <DiscordEntityPicker type="channel" value="" onChange={() => {}} multiple values={ignoredChannels} onChangeMultiple={setIgnoredChannels} label="Ignored Channels" placeholder="Select channels to ignore" />
+              <DiscordEntityPicker type="role" value="" onChange={() => {}} multiple values={ignoredRoles} onChangeMultiple={setIgnoredRoles} label="Ignored Roles" placeholder="Select roles to ignore" />
             </div>
 
-            {/* XP Table Preview */}
             <div className="mt-4 p-3 rounded-md bg-background border border-border">
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Level Progression Preview</p>
               <div className="grid grid-cols-5 gap-2">
@@ -165,7 +156,6 @@ export default function DashboardLeveling() {
             </div>
           </motion.div>
 
-          {/* Role Rewards */}
           <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="rounded-lg border border-border bg-card p-5">
             <div className="flex items-center gap-3 mb-4"><Gift className="w-4 h-4 text-primary" /><h2 className="text-sm font-medium text-card-foreground">Role Rewards</h2></div>
             <p className="text-xs text-muted-foreground mb-3">Automatically assign roles when members reach certain levels</p>
@@ -186,8 +176,7 @@ export default function DashboardLeveling() {
                 <input type="number" value={newLevel} onChange={(e) => setNewLevel(e.target.value)} placeholder="5" className="w-20 px-2 py-2 rounded-md bg-background border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
               </div>
               <div className="flex-1">
-                <label className="text-[10px] text-muted-foreground block mb-1">Role ID</label>
-                <input type="text" value={newRoleId} onChange={(e) => setNewRoleId(e.target.value)} placeholder="123456789012345678" className="w-full px-2 py-2 rounded-md bg-background border border-border text-sm text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-ring" />
+                <DiscordEntityPicker type="role" value={newRoleId} onChange={setNewRoleId} label="Role" />
               </div>
               <button onClick={addReward} className="px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm hover:opacity-90"><Plus className="w-4 h-4" /></button>
             </div>
