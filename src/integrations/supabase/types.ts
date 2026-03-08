@@ -582,6 +582,94 @@ export type Database = {
           },
         ]
       }
+      scheduled_messages: {
+        Row: {
+          bot_id: string
+          channel_id: string
+          created_at: string
+          embed_data: Json | null
+          enabled: boolean
+          id: string
+          last_sent_at: string | null
+          message_content: string
+          recurring: string | null
+          send_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bot_id: string
+          channel_id: string
+          created_at?: string
+          embed_data?: Json | null
+          enabled?: boolean
+          id?: string
+          last_sent_at?: string | null
+          message_content: string
+          recurring?: string | null
+          send_at: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bot_id?: string
+          channel_id?: string
+          created_at?: string
+          embed_data?: Json | null
+          enabled?: boolean
+          id?: string
+          last_sent_at?: string | null
+          message_content?: string
+          recurring?: string | null
+          send_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_messages_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      server_events: {
+        Row: {
+          bot_id: string
+          created_at: string
+          event_data: Json | null
+          event_type: string
+          guild_id: string
+          id: string
+        }
+        Insert: {
+          bot_id: string
+          created_at?: string
+          event_data?: Json | null
+          event_type: string
+          guild_id: string
+          id?: string
+        }
+        Update: {
+          bot_id?: string
+          created_at?: string
+          event_data?: Json | null
+          event_type?: string
+          guild_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "server_events_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ticket_config: {
         Row: {
           bot_id: string
