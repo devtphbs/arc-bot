@@ -461,6 +461,51 @@ export default function CommandBuilder() {
                   ))}
                   <button onClick={() => setVariables((p) => [...p, { id: createId(), key: "", fallback: "", required: false }])} className="text-[10px] text-primary hover:text-primary/80 flex items-center gap-1 mt-1"><Plus className="w-3 h-3" /> Add Variable</button>
                 </div>
+
+                {/* Command Options (slash command parameters) */}
+                {type === "slash" && (
+                  <div>
+                    <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">Command Options</label>
+                    <p className="text-[10px] text-muted-foreground mb-2">Add parameters users fill in when using the command (e.g. amount for /purge)</p>
+                    {commandOptions.map((opt) => (
+                      <div key={opt.id} className="mb-2 p-2 rounded-md bg-background border border-border space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <select value={opt.type} onChange={(e) => setCommandOptions((p) => p.map((o) => o.id === opt.id ? { ...o, type: e.target.value as any } : o))} className="px-1.5 py-1 rounded bg-card border border-border text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-ring">
+                            {["STRING", "INTEGER", "NUMBER", "BOOLEAN", "USER", "CHANNEL", "ROLE", "MENTIONABLE"].map((t) => <option key={t} value={t}>{t}</option>)}
+                          </select>
+                          <div className="flex items-center gap-1">
+                            <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer">
+                              <input type="checkbox" checked={opt.required} onChange={(e) => setCommandOptions((p) => p.map((o) => o.id === opt.id ? { ...o, required: e.target.checked } : o))} className="accent-primary w-3 h-3" />
+                              Required
+                            </label>
+                            <button onClick={() => setCommandOptions((p) => p.filter((o) => o.id !== opt.id))} className="text-muted-foreground hover:text-destructive"><Trash2 className="w-3 h-3" /></button>
+                          </div>
+                        </div>
+                        <input type="text" value={opt.name} onChange={(e) => setCommandOptions((p) => p.map((o) => o.id === opt.id ? { ...o, name: e.target.value.toLowerCase().replace(/\s/g, "_") } : o))} placeholder="option_name" className="w-full px-2 py-1 rounded bg-card border border-border text-[11px] text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-ring" />
+                        <input type="text" value={opt.description} onChange={(e) => setCommandOptions((p) => p.map((o) => o.id === opt.id ? { ...o, description: e.target.value } : o))} placeholder="Description" className="w-full px-2 py-1 rounded bg-card border border-border text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+                        {(opt.type === "STRING" || opt.type === "INTEGER" || opt.type === "NUMBER") && (
+                          <div>
+                            <p className="text-[10px] text-muted-foreground mb-1">Choices (optional, one per line: name=value)</p>
+                            <textarea
+                              value={(opt.choices || []).map((c) => `${c.name}=${c.value}`).join("\n")}
+                              onChange={(e) => {
+                                const choices = e.target.value.split("\n").filter(Boolean).map((l) => {
+                                  const [name, ...rest] = l.split("=");
+                                  return { name: name.trim(), value: rest.join("=").trim() || name.trim() };
+                                });
+                                setCommandOptions((p) => p.map((o) => o.id === opt.id ? { ...o, choices: choices.length > 0 ? choices : undefined } : o));
+                              }}
+                              rows={2}
+                              placeholder="Small=5&#10;Medium=10&#10;Large=25"
+                              className="w-full px-2 py-1 rounded bg-card border border-border text-[10px] text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-ring resize-none"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    <button onClick={() => setCommandOptions((p) => [...p, { id: createId(), name: "", description: "", type: "STRING", required: false }])} className="text-[10px] text-primary hover:text-primary/80 flex items-center gap-1 mt-1"><Plus className="w-3 h-3" /> Add Option</button>
+                  </div>
+                )}
               </div>
             )}
 
