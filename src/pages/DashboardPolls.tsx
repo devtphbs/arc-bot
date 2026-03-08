@@ -138,6 +138,21 @@ export default function DashboardPolls() {
         </div>
       </motion.div>
 
+      {/* Allowed Roles */}
+      <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="mt-4 rounded-lg border border-border bg-card p-4">
+        <DiscordEntityPicker
+          type="role"
+          value=""
+          onChange={() => {}}
+          multiple
+          values={allowedRoles}
+          onChangeMultiple={setAllowedRoles}
+          label="🔒 Allowed Roles (who can use /poll commands)"
+          placeholder="Leave empty = everyone"
+        />
+        <p className="text-[10px] text-muted-foreground mt-1">Restrict who can create, end, and view poll results. Empty = anyone.</p>
+      </motion.div>
+
       <div className="space-y-4 mt-6">
         {polls.map((poll, i) => (
           <motion.div key={poll.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }} className="rounded-lg border border-border bg-card p-5">
