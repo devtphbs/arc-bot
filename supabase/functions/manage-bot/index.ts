@@ -149,7 +149,26 @@ Deno.serve(async (req) => {
             });
           }
         }
-        await adminClient.from("bots").update({ status: "online" }).eq("id", bot_id);
+
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+        const gatewayRes = await fetch(`${supabaseUrl}/functions/v1/discord-gateway`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: authHeader!,
+          },
+          body: JSON.stringify({ bot_id }),
+        });
+
+        const gatewayResult = await gatewayRes.json().catch(() => ({}));
+
+        if (!gatewayRes.ok || !gatewayResult?.success) {
+          await adminClient.from("bots").update({ status: "offline" }).eq("id", bot_id);
+          return new Response(JSON.stringify({
+            error: gatewayResult?.error || "Failed to reconnect to Discord Gateway",
+          }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+
         return new Response(JSON.stringify({ success: true, status: "online" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
