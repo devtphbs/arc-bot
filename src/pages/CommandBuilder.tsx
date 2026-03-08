@@ -243,7 +243,7 @@ export default function CommandBuilder() {
   );
 
   useEffect(() => {
-    if (!editId || !selectedBot) return;
+    if (!editId || !targetBot) return;
     supabase.from("commands").select("*").eq("id", editId).single().then(({ data }) => {
       if (!data) return;
       setType(data.type);
@@ -260,7 +260,7 @@ export default function CommandBuilder() {
         }
       }
     });
-  }, [editId, selectedBot?.id]);
+  }, [editId, targetBot?.id]);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
@@ -286,11 +286,11 @@ export default function CommandBuilder() {
   }, []);
 
   const handleSave = async () => {
-    if (!name.trim() || !selectedBot || !user) return;
+    if (!name.trim() || !targetBot || !user) return;
     setSaving(true);
     const builderConfig = { mode: "blocks_v1", textResponses: [], blocks, variables, eventHooks: [], timedEvents: [] };
     const payload = {
-      bot_id: selectedBot.id, user_id: user.id, name: name.trim(), description: description.trim() || null, type, permissions,
+      bot_id: targetBot.id, user_id: user.id, name: name.trim(), description: description.trim() || null, type, permissions,
       responses: builderConfig as unknown as Json,
       cooldown, ephemeral,
     };
@@ -319,7 +319,7 @@ export default function CommandBuilder() {
     setShowTestPanel(true);
     try {
       const { data, error } = await supabase.functions.invoke("execute-blocks", {
-        body: { blocks, variables, bot_id: selectedBot?.id, dry_run: true, context: { user: "TestUser#1234", server: "TestServer", channel: "general", mention: "@TestUser" } },
+        body: { blocks, variables, bot_id: targetBot?.id, dry_run: true, context: { user: "TestUser#1234", server: "TestServer", channel: "general", mention: "@TestUser" } },
       });
       if (error) throw error;
       setTestResults(data.results || []);
@@ -360,7 +360,7 @@ export default function CommandBuilder() {
             <ArrowLeft className="w-4 h-4" />
           </button>
           <span className="text-sm font-medium text-card-foreground">{editId ? "Edit Command" : "New Command"}</span>
-          {selectedBot && <span className="text-[10px] px-2 py-0.5 rounded bg-primary/10 text-primary font-medium">Saving to: {selectedBot.bot_name}</span>}
+          {targetBot && <span className="text-[10px] px-2 py-0.5 rounded bg-primary/10 text-primary font-medium">Saving to: {targetBot.bot_name}</span>}
           <div className="flex items-center gap-1 ml-2">
             <button onClick={() => setShowSettings(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
               <Settings className="w-3.5 h-3.5" /> Settings
