@@ -85,6 +85,14 @@ Deno.serve(async (req) => {
         }
 
         if (eventType === "MESSAGE_CREATE" && !payload.author?.bot) {
+          // Track message event
+          void adminClient.from("server_events").insert({ bot_id, guild_id: payload.guild_id || "dm", event_type: "message", event_data: { channel_id: payload.channel_id, user_id: payload.author?.id } });
+
+          // Auto-moderation
+          if (modules.automod || modules.wordfilter || modules.antispam) {
+            void handleAutoMod(payload, token, adminClient, bot_id, modules);
+          }
+
           if (levelingConfig?.enabled) {
             void handleLeveling(payload, adminClient, bot_id, user.id, token, levelingConfig);
           }
@@ -93,12 +101,14 @@ Deno.serve(async (req) => {
           }
         }
 
-        if (eventType === "GUILD_MEMBER_ADD" && modules.welcome) {
-          void handleWelcome(payload, token, modules.welcome, true);
+        if (eventType === "GUILD_MEMBER_ADD") {
+          void adminClient.from("server_events").insert({ bot_id, guild_id: payload.guild_id || "", event_type: "member_join", event_data: { user_id: payload.user?.id } });
+          if (modules.welcome) void handleWelcome(payload, token, modules.welcome, true);
         }
 
-        if (eventType === "GUILD_MEMBER_REMOVE" && modules.leave) {
-          void handleWelcome(payload, token, modules.leave, false);
+        if (eventType === "GUILD_MEMBER_REMOVE") {
+          void adminClient.from("server_events").insert({ bot_id, guild_id: payload.guild_id || "", event_type: "member_leave", event_data: { user_id: payload.user?.id } });
+          if (modules.leave) void handleWelcome(payload, token, modules.leave, false);
         }
 
         if (eventType === "MESSAGE_REACTION_ADD" && modules.reaction_roles) {
