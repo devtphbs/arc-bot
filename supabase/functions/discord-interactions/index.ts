@@ -53,6 +53,9 @@ Deno.serve(async (req) => {
     if (interaction.action === "deploy_ticket_panel") {
       return await deployTicketPanel(adminClient, interaction);
     }
+    if (interaction.action === "deploy_reaction_role_panel") {
+      return await deployReactionRolePanel(adminClient, interaction);
+    }
     if (interaction.action === "end_giveaways") {
       return await autoEndGiveaways(adminClient);
     }
@@ -151,6 +154,11 @@ Deno.serve(async (req) => {
       }
       if (customId.startsWith("ticket_claim_")) {
         return await handleTicketClaim(interaction, bot, token, adminClient);
+      }
+
+      // Reaction role button (toggle role)
+      if (customId.startsWith("rr_")) {
+        return await handleReactionRoleButton(interaction, bot, token);
       }
 
       // Ticket category button (opens new ticket)
@@ -822,4 +830,87 @@ async function handleModuleCommand(
   }
 
   return null;
+}
+
+// ─── Deploy Reaction Role Panel ───────────────────────────────────
+async function deployReactionRolePanel(adminClient: any, payload: any) {
+  const { bot_id, channel_id, message_text, roles } = payload;
+  const { data: bot } = await adminClient.from("bots").select("*").eq("id", bot_id).maybeSingle();
+  if (!bot) return respond({ error: "Bot not found" });
+
+  const token = atob(bot.token_encrypted);
+  const components: any[] = [];
+  let currentRow: any = { type: 1, components: [] };
+
+  (roles || []).forEach((role: any) => {
+    if (currentRow.components.length >= 5) {
+      components.push(currentRow);
+      currentRow = { type: 1, components: [] };
+    }
+    currentRow.components.push({
+      type: 2,
+      style: 2, // grey/secondary
+      label: `${role.emoji} ${role.roleName}`,
+      custom_id: `rr_${role.roleId}`,
+    });
+  });
+  if (currentRow.components.length > 0) components.push(currentRow);
+
+  const msgRes = await fetch(`https://discord.com/api/v10/channels/${channel_id}/messages`, {
+    method: "POST",
+    headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      embeds: [{
+        title: "🎭 Role Menu",
+        description: message_text || "Click a button to get or remove a role!",
+        color: 0x5865f2,
+      }],
+      components,
+    }),
+  });
+
+  if (!msgRes.ok) {
+    const err = await msgRes.json();
+    console.error("Reaction role panel error:", err);
+    return new Response(JSON.stringify({ error: err.message || "Failed to send panel" }), {
+      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  return new Response(JSON.stringify({ success: true }), {
+    status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+// ─── Reaction Role Button Handler (toggle role) ───────────────────
+async function handleReactionRoleButton(interaction: any, bot: any, token: string) {
+  const customId = interaction.data?.custom_id || "";
+  const roleId = customId.replace("rr_", "");
+  const userId = interaction.member?.user?.id;
+  const guildId = interaction.guild_id;
+  const memberRoles: string[] = interaction.member?.roles || [];
+
+  const hasRole = memberRoles.includes(roleId);
+
+  if (hasRole) {
+    // Remove role
+    const res = await fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${userId}/roles/${roleId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bot ${token}` },
+    });
+    if (!res.ok) {
+      return respond({ type: 4, data: { content: "❌ Failed to remove role. Bot needs Manage Roles permission and the role must be below the bot's role.", flags: 64 } });
+    }
+    return respond({ type: 4, data: { content: `✅ Removed <@&${roleId}> from you.`, flags: 64 } });
+  } else {
+    // Add role
+    const res = await fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${userId}/roles/${roleId}`, {
+      method: "PUT",
+      headers: { Authorization: `Bot ${token}` },
+    });
+    if (!res.ok) {
+      return respond({ type: 4, data: { content: "❌ Failed to add role. Bot needs Manage Roles permission and the role must be below the bot's role.", flags: 64 } });
+    }
+    return respond({ type: 4, data: { content: `✅ Added <@&${roleId}> to you!`, flags: 64 } });
+  }
 }
