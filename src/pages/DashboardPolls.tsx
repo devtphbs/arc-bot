@@ -187,20 +187,6 @@ export default function DashboardPolls() {
                 </div>
               </div>
 
-              {/* Allowed Roles */}
-              <div>
-                <DiscordEntityPicker
-                  type="role"
-                  value=""
-                  onChange={() => {}}
-                  multiple
-                  values={poll.allowedRoles || []}
-                  onChangeMultiple={(v) => updatePoll(poll.id, { allowedRoles: v })}
-                  label="🔒 Allowed Roles (who can use /poll)"
-                  placeholder="Leave empty = everyone"
-                />
-                <p className="text-[10px] text-muted-foreground mt-1">Restrict who can create polls with this command. Empty = anyone.</p>
-              </div>
             </div>
 
             {/* Discord Preview */}
