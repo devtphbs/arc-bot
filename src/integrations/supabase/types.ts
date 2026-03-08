@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      auto_backups: {
+        Row: {
+          backup_data: Json
+          backup_type: string
+          bot_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          backup_data?: Json
+          backup_type?: string
+          bot_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          backup_data?: Json
+          backup_type?: string
+          bot_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auto_backups_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       automations: {
         Row: {
           actions: Json | null
@@ -243,6 +278,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "commands_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      downtime_alerts: {
+        Row: {
+          alert_type: string
+          bot_id: string
+          created_at: string
+          id: string
+          message: string
+          resolved: boolean
+          user_id: string
+        }
+        Insert: {
+          alert_type?: string
+          bot_id: string
+          created_at?: string
+          id?: string
+          message: string
+          resolved?: boolean
+          user_id: string
+        }
+        Update: {
+          alert_type?: string
+          bot_id?: string
+          created_at?: string
+          id?: string
+          message?: string
+          resolved?: boolean
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "downtime_alerts_bot_id_fkey"
             columns: ["bot_id"]
             isOneToOne: false
             referencedRelation: "bots"

@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Terminal, Zap, Shield, RefreshCw, ScrollText, Settings, Bot, ChevronLeft, Plus, Circle,
   UserPlus, Heart, BarChart3, Trophy, Ticket, Palette, Medal, FileCode, Music, MessageSquare, Gift, Vote,
-  Variable, Bell, Activity, DatabaseBackup,
+  Variable, Bell, Activity, DatabaseBackup, ClipboardList, Code2,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -15,49 +15,51 @@ const navSections = [
   {
     label: "Main",
     items: [
-      { title: "Overview", url: "/dashboard", icon: LayoutDashboard },
-      { title: "Commands", url: "/dashboard/commands", icon: Terminal },
-      { title: "Embed Builder", url: "/dashboard/embeds", icon: Palette },
+      { title: "Overview", url: "/dashboard", icon: LayoutDashboard, desc: "Bot controls & quick start" },
+      { title: "Commands", url: "/dashboard/commands", icon: Terminal, desc: "Slash & prefix commands" },
+      { title: "Embed Builder", url: "/dashboard/embeds", icon: Palette, desc: "Visual embed creator" },
     ],
   },
   {
     label: "Engagement",
     items: [
-      { title: "Welcome", url: "/dashboard/welcome", icon: UserPlus },
-      { title: "Reaction Roles", url: "/dashboard/reaction-roles", icon: Heart },
-      { title: "Leveling & XP", url: "/dashboard/leveling", icon: Trophy },
-      { title: "Leaderboard", url: "/dashboard/leaderboard", icon: Medal },
-      { title: "Giveaways", url: "/dashboard/giveaways", icon: Gift },
-      { title: "Polls", url: "/dashboard/polls", icon: Vote },
+      { title: "Welcome & Leave", url: "/dashboard/welcome", icon: UserPlus, desc: "Greet & farewell messages" },
+      { title: "Reaction Roles", url: "/dashboard/reaction-roles", icon: Heart, desc: "Self-assign roles via reactions" },
+      { title: "Leveling & XP", url: "/dashboard/leveling", icon: Trophy, desc: "XP rewards & role upgrades" },
+      { title: "Leaderboard", url: "/dashboard/leaderboard", icon: Medal, desc: "Server XP rankings" },
+      { title: "Giveaways", url: "/dashboard/giveaways", icon: Gift, desc: "Prize giveaways with reactions" },
+      { title: "Polls", url: "/dashboard/polls", icon: Vote, desc: "Server polls & surveys" },
     ],
   },
   {
     label: "Modules",
     items: [
-      { title: "Music", url: "/dashboard/music", icon: Music },
-      { title: "Auto Responder", url: "/dashboard/auto-responder", icon: MessageSquare },
-      { title: "Tickets", url: "/dashboard/tickets", icon: Ticket },
-      { title: "Social Alerts", url: "/dashboard/social-alerts", icon: Bell },
-      { title: "Variables", url: "/dashboard/variables", icon: Variable },
+      { title: "Music", url: "/dashboard/music", icon: Music, desc: "Music playback settings" },
+      { title: "Auto Responder", url: "/dashboard/auto-responder", icon: MessageSquare, desc: "Trigger-based auto replies" },
+      { title: "Tickets", url: "/dashboard/tickets", icon: Ticket, desc: "Support ticket system" },
+      { title: "Social Alerts", url: "/dashboard/social-alerts", icon: Bell, desc: "Twitch/YT/Twitter notifications" },
+      { title: "Variables", url: "/dashboard/variables", icon: Variable, desc: "Custom dynamic variables" },
+      { title: "Custom Scripts", url: "/dashboard/custom-scripts", icon: Code2, desc: "Advanced scripting (coming soon)" },
     ],
   },
   {
     label: "Management",
     items: [
-      { title: "Events", url: "/dashboard/events", icon: Zap },
-      { title: "Moderation", url: "/dashboard/moderation", icon: Shield },
-      { title: "Automations", url: "/dashboard/automations", icon: RefreshCw },
-      { title: "Analytics", url: "/dashboard/analytics", icon: BarChart3 },
-      { title: "Logs", url: "/dashboard/logs", icon: ScrollText },
+      { title: "Events", url: "/dashboard/events", icon: Zap, desc: "Event-triggered actions" },
+      { title: "Moderation", url: "/dashboard/moderation", icon: Shield, desc: "Auto-mod & safety tools" },
+      { title: "Automations", url: "/dashboard/automations", icon: RefreshCw, desc: "Scheduled & triggered tasks" },
+      { title: "Analytics", url: "/dashboard/analytics", icon: BarChart3, desc: "Usage stats & charts" },
+      { title: "Logs", url: "/dashboard/logs", icon: ScrollText, desc: "Real-time event stream" },
+      { title: "Audit Log", url: "/dashboard/audit-log", icon: ClipboardList, desc: "Full action history" },
     ],
   },
   {
     label: "System",
     items: [
-      { title: "Status Monitor", url: "/dashboard/status", icon: Activity },
-      { title: "Export Bot", url: "/dashboard/export", icon: FileCode },
-      { title: "Backup & Restore", url: "/dashboard/backup", icon: DatabaseBackup },
-      { title: "Settings", url: "/dashboard/settings", icon: Settings },
+      { title: "Status Monitor", url: "/dashboard/status", icon: Activity, desc: "Health & downtime alerts" },
+      { title: "Export Bot", url: "/dashboard/export", icon: FileCode, desc: "Download Python script" },
+      { title: "Backup & Restore", url: "/dashboard/backup", icon: DatabaseBackup, desc: "Config backup & rollback" },
+      { title: "Settings", url: "/dashboard/settings", icon: Settings, desc: "Identity, token & prefix" },
     ],
   },
 ];
@@ -115,7 +117,7 @@ export function DashboardSidebar() {
               {!collapsed && <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1 px-1 mt-2">{section.label}</p>}
               <div className="space-y-0.5">
                 {section.items.map((item) => (
-                  <NavLink key={item.title} to={item.url} end={item.url === "/dashboard"} className={cn("flex items-center gap-3 px-2.5 py-1.5 rounded-md text-sm transition-all text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent", collapsed && "justify-center px-2")} activeClassName="bg-sidebar-accent text-primary font-medium glow-primary">
+                  <NavLink key={item.title} to={item.url} end={item.url === "/dashboard"} className={cn("flex items-center gap-3 px-2.5 py-1.5 rounded-md text-sm transition-all text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent group", collapsed && "justify-center px-2")} activeClassName="bg-sidebar-accent text-primary font-medium glow-primary" title={collapsed ? `${item.title}: ${item.desc}` : undefined}>
                     <item.icon className="w-4 h-4 shrink-0" />
                     {!collapsed && <span>{item.title}</span>}
                   </NavLink>

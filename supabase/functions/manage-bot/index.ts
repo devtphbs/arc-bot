@@ -33,7 +33,6 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "bot_id and action required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Get bot token
     const adminClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -104,7 +103,7 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Connect to Discord Gateway to bring bot online with presence
+        // Connect to Discord Gateway
         const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
         const gatewayRes = await fetch(`${supabaseUrl}/functions/v1/discord-gateway`, {
           method: "POST",
@@ -128,7 +127,18 @@ Deno.serve(async (req) => {
       }
 
       case "stop": {
+        // Immediately set to offline so keepalive doesn't reconnect
         await adminClient.from("bots").update({ status: "offline" }).eq("id", bot_id);
+        
+        // Log the stop
+        await adminClient.from("bot_logs").insert({
+          bot_id,
+          user_id: user.id,
+          level: "info",
+          source: "dashboard",
+          message: "Bot stopped by user. Keepalive will not reconnect this bot.",
+        });
+
         return new Response(JSON.stringify({ success: true, status: "offline" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
@@ -173,8 +183,6 @@ Deno.serve(async (req) => {
       }
 
       case "update_status": {
-        // Note: Gateway-based presence requires a WebSocket connection.
-        // We store the desired status config so the bot gateway can use it.
         await adminClient.from("bot_modules").upsert({
           bot_id,
           user_id: user.id,

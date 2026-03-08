@@ -33,6 +33,8 @@ import DashboardVariables from "./pages/DashboardVariables";
 import DashboardSocialAlerts from "./pages/DashboardSocialAlerts";
 import DashboardBackup from "./pages/DashboardBackup";
 import DashboardStatus from "./pages/DashboardStatus";
+import DashboardAuditLog from "./pages/DashboardAuditLog";
+import DashboardCustomCommands from "./pages/DashboardCustomCommands";
 import CommandBuilder from "./pages/CommandBuilder";
 
 const queryClient = new QueryClient();
@@ -62,11 +64,13 @@ const App = () => (
                 <Route path="polls" element={<DashboardPolls />} />
                 <Route path="variables" element={<DashboardVariables />} />
                 <Route path="social-alerts" element={<DashboardSocialAlerts />} />
+                <Route path="custom-scripts" element={<DashboardCustomCommands />} />
                 <Route path="events" element={<DashboardEvents />} />
                 <Route path="moderation" element={<DashboardModeration />} />
                 <Route path="automations" element={<DashboardAutomations />} />
                 <Route path="analytics" element={<DashboardAnalytics />} />
                 <Route path="logs" element={<DashboardLogs />} />
+                <Route path="audit-log" element={<DashboardAuditLog />} />
                 <Route path="status" element={<DashboardStatus />} />
                 <Route path="export" element={<DashboardExport />} />
                 <Route path="backup" element={<DashboardBackup />} />
