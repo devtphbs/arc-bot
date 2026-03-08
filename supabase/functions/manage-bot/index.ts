@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
       case "start": {
         // Register slash commands with Discord
         const { data: commands } = await adminClient.from("commands").select("*").eq("bot_id", bot_id).eq("enabled", true);
-        
+
         if (commands && commands.length > 0 && bot.bot_id) {
           const slashCommands = commands.filter(c => c.type === "slash").map(c => ({
             name: c.name.replace(/^\//, ""),
@@ -114,11 +114,14 @@ Deno.serve(async (req) => {
           },
           body: JSON.stringify({ bot_id }),
         });
-        const gatewayResult = await gatewayRes.json();
 
-        if (!gatewayResult.success) {
-          // Still mark as online even if gateway had issues (commands are registered)
-          await adminClient.from("bots").update({ status: "online" }).eq("id", bot_id);
+        const gatewayResult = await gatewayRes.json().catch(() => ({}));
+
+        if (!gatewayRes.ok || !gatewayResult?.success) {
+          await adminClient.from("bots").update({ status: "offline" }).eq("id", bot_id);
+          return new Response(JSON.stringify({
+            error: gatewayResult?.error || "Failed to connect to Discord Gateway",
+          }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
 
         return new Response(JSON.stringify({ success: true, status: "online", gateway: gatewayResult }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
