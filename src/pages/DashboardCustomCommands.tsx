@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Code2, Plus, Search, Trash2, ToggleLeft, ToggleRight, Save, X, ChevronDown, ChevronUp } from "lucide-react";
+import { Code2, Plus, Search, Trash2, ToggleLeft, ToggleRight, Save, X, ChevronDown, ChevronUp, Globe, BookOpen, Copy, Check } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useBot } from "@/hooks/useBot";
@@ -381,14 +381,98 @@ export default function DashboardCustomCommands() {
 
                 {/* Code Editor */}
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Script Code</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-medium text-muted-foreground">Script Code</label>
+                    <button
+                      onClick={() => setShowScrapeRef(!showScrapeRef)}
+                      className="flex items-center gap-1 px-2 py-1 rounded text-xs text-primary hover:bg-primary/10 transition-colors"
+                    >
+                      <BookOpen className="w-3 h-3" /> {showScrapeRef ? "Hide" : "Show"} Scraping Reference
+                    </button>
+                  </div>
                   <textarea
                     value={scriptCode}
                     onChange={(e) => setScriptCode(e.target.value)}
                     spellCheck={false}
-                    className="w-full h-80 px-4 py-3 rounded-md bg-[hsl(var(--secondary))] border border-input text-sm text-foreground font-mono leading-relaxed resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+                    className="w-full h-80 px-4 py-3 rounded-md bg-secondary border border-input text-sm text-foreground font-mono leading-relaxed resize-y focus:outline-none focus:ring-1 focus:ring-ring"
                   />
                 </div>
+
+                {/* Scraping Reference Panel */}
+                {showScrapeRef && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="rounded-lg border border-primary/20 bg-primary/5 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-primary/10 flex items-center gap-2">
+                      <Globe className="w-4 h-4 text-primary" />
+                      <span className="text-sm font-medium text-foreground">Web Scraping Reference</span>
+                    </div>
+                    <div className="p-4 space-y-4">
+                      {/* Quick reference */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="rounded-md bg-background border border-border p-3">
+                          <h4 className="text-xs font-semibold text-foreground mb-2">🔧 Scrape Functions</h4>
+                          <div className="space-y-1.5 text-[11px] font-mono">
+                            <div><span className="text-primary">scrape</span><span className="text-muted-foreground">("url", "selector")</span> <span className="text-muted-foreground ml-2">→ text</span></div>
+                            <div><span className="text-primary">scrapeAll</span><span className="text-muted-foreground">("url", "selector")</span> <span className="text-muted-foreground ml-2">→ all texts</span></div>
+                            <div><span className="text-primary">scrapeImage</span><span className="text-muted-foreground">("url", "selector")</span> <span className="text-muted-foreground ml-2">→ image URL</span></div>
+                            <div><span className="text-primary">scrapeAttr</span><span className="text-muted-foreground">("url", "selector", "attr")</span> <span className="text-muted-foreground ml-2">→ attribute</span></div>
+                          </div>
+                        </div>
+                        <div className="rounded-md bg-background border border-border p-3">
+                          <h4 className="text-xs font-semibold text-foreground mb-2">🎯 CSS Selectors</h4>
+                          <div className="space-y-1.5 text-[11px] font-mono">
+                            <div><span className="text-primary">.classname</span> <span className="text-muted-foreground ml-2">→ by class</span></div>
+                            <div><span className="text-primary">#myid</span> <span className="text-muted-foreground ml-2">→ by id</span></div>
+                            <div><span className="text-primary">h1</span>, <span className="text-primary">p</span>, <span className="text-primary">span</span> <span className="text-muted-foreground ml-2">→ by tag</span></div>
+                            <div><span className="text-primary">div.card</span> <span className="text-muted-foreground ml-2">→ tag + class</span></div>
+                            <div><span className="text-primary">.parent .child</span> <span className="text-muted-foreground ml-2">→ nested</span></div>
+                            <div><span className="text-primary">[data-price]</span> <span className="text-muted-foreground ml-2">→ by attribute</span></div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="rounded-md bg-background border border-border p-3">
+                        <h4 className="text-xs font-semibold text-foreground mb-2">📦 Using Results in reply()</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5 text-[11px] font-mono">
+                          <div><span className="text-primary">{'{scrape.0}'}</span> <span className="text-muted-foreground">→ 1st scrape() result</span></div>
+                          <div><span className="text-primary">{'{scrape.1}'}</span> <span className="text-muted-foreground">→ 2nd scrape() result</span></div>
+                          <div><span className="text-primary">{'{scrapeImage.0}'}</span> <span className="text-muted-foreground">→ 1st image URL</span></div>
+                          <div><span className="text-primary">{'{scrapeAttr.0}'}</span> <span className="text-muted-foreground">→ 1st attribute value</span></div>
+                          <div><span className="text-primary">{'{scrapeAll.0.0}'}</span> <span className="text-muted-foreground">→ 1st item of 1st scrapeAll</span></div>
+                          <div><span className="text-primary">{'{scrapeAll.0.join(", ")}'}</span> <span className="text-muted-foreground">→ all items joined</span></div>
+                        </div>
+                      </div>
+
+                      {/* Examples */}
+                      <div>
+                        <h4 className="text-xs font-semibold text-foreground mb-2">💡 Examples — click to insert</h4>
+                        <div className="grid grid-cols-1 gap-2">
+                          {SCRAPE_EXAMPLES.map((ex, i) => (
+                            <button
+                              key={i}
+                              onClick={() => {
+                                setScriptCode(ex.code);
+                                toast.success(`Inserted example: ${ex.title}`);
+                              }}
+                              className="text-left rounded-md bg-secondary/50 border border-border p-3 hover:border-primary/30 hover:bg-secondary transition-colors group"
+                            >
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs font-medium text-foreground">{ex.title}</span>
+                                <Copy className="w-3 h-3 text-muted-foreground group-hover:text-primary transition-colors" />
+                              </div>
+                              <pre className="text-[11px] font-mono text-primary/80 mb-1 whitespace-pre-wrap">{ex.code}</pre>
+                              <p className="text-[10px] text-muted-foreground">{ex.desc}</p>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="rounded-md bg-accent/30 border border-accent/20 p-3">
+                        <p className="text-[11px] text-muted-foreground">
+                          <strong className="text-foreground">💡 Tip:</strong> To find the right CSS selector, right-click any element on a website → <strong>Inspect</strong> → look at the <code className="text-primary">class=""</code> or <code className="text-primary">id=""</code> attribute. Use that as your selector with a dot (.) for classes or hash (#) for IDs.
+                        </p>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
 
                 {/* Actions */}
                 <div className="flex items-center justify-end gap-2">
