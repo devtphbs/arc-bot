@@ -140,6 +140,35 @@ async function buildAllSlashCommands(adminClient: any, botDbId: string, bot: any
     }
   }
 
+  // Custom scripts (with optional options)
+  const { data: customScripts } = await adminClient.from("custom_scripts").select("*").eq("bot_id", botDbId).eq("enabled", true);
+  if (customScripts) {
+    const optionTypeMap: Record<string, number> = { string: 3, integer: 4, boolean: 5, user: 6, channel: 7, role: 8 };
+    for (const s of customScripts) {
+      if (!s.trigger_command) continue;
+      const cmdName = s.trigger_command.replace(/^\//, "").toLowerCase();
+      // Skip if already registered from commands table
+      if (commands.some((c: any) => c.name === cmdName)) continue;
+      const cmd: any = { name: cmdName, description: s.description || "Custom script", type: 1 };
+      // Parse options from script code
+      const optMatch = s.script_code?.match(/^\/\/ @options (.+)$/m);
+      if (optMatch) {
+        try {
+          const opts = JSON.parse(optMatch[1]);
+          if (Array.isArray(opts) && opts.length > 0) {
+            cmd.options = opts.map((o: any) => ({
+              name: o.name,
+              description: o.description || o.name,
+              type: optionTypeMap[o.type] || 3,
+              required: false,
+            }));
+          }
+        } catch {}
+      }
+      commands.push(cmd);
+    }
+  }
+
   // Modules
   const { data: modules } = await adminClient.from("bot_modules").select("*").eq("bot_id", botDbId).eq("enabled", true);
   const enabledModules = new Set<string>();
