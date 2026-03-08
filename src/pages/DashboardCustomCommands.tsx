@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Code2, Plus, Search, Trash2, ToggleLeft, ToggleRight, Save, X, ChevronDown, ChevronUp, Globe, BookOpen, Copy, Check } from "lucide-react";
+import { Code2, Plus, Search, Trash2, ToggleLeft, ToggleRight, Save, X, ChevronDown, ChevronUp, Globe, BookOpen, Copy, Check, Play, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useBot } from "@/hooks/useBot";
@@ -139,6 +139,8 @@ export default function DashboardCustomCommands() {
   const [scriptCode, setScriptCode] = useState("");
   const [options, setOptions] = useState<ScriptOption[]>([]);
   const [showScrapeRef, setShowScrapeRef] = useState(false);
+  const [testRunning, setTestRunning] = useState(false);
+  const [testOutput, setTestOutput] = useState<string | null>(null);
 
   const fetchScripts = async () => {
     if (!selectedBot) return;
@@ -242,6 +244,82 @@ export default function DashboardCustomCommands() {
 
     cancelEdit();
     fetchScripts();
+  };
+
+  const testScript = async () => {
+    setTestRunning(true);
+    setTestOutput(null);
+    try {
+      // Parse the script to simulate output
+      let code = scriptCode.replace(/^\/\/.*/gm, "").trim();
+      
+      // Simulate variable replacements
+      const simVars: Record<string, string> = {
+        "{user}": "@TestUser",
+        "{user.id}": "123456789",
+        "{user.name}": "TestUser",
+        "{channel}": "#test-channel",
+        "{channel.id}": "987654321",
+        "{server.name}": "Test Server",
+      };
+      // Replace {options.x} with placeholder
+      options.forEach(opt => {
+        if (opt.name) simVars[`{options.${opt.name}}`] = `<${opt.name}>`;
+      });
+
+      // Extract reply() calls
+      const replies: string[] = [];
+      const replyRegex = /reply\(["'`]([\s\S]*?)["'`]\)/g;
+      let m;
+      while ((m = replyRegex.exec(code)) !== null) {
+        let text = m[1];
+        Object.entries(simVars).forEach(([k, v]) => { text = text.replaceAll(k, v); });
+        // Replace scrape results with placeholders
+        text = text.replace(/\{scrape\.\d+\}/g, "(scraped text)");
+        text = text.replace(/\{scrapeImage\.\d+\}/g, "(image url)");
+        text = text.replace(/\{scrapeAll\.\d+\.join\(.+?\)\}/g, "(scraped list)");
+        text = text.replace(/\{scrapeAll\.\d+\.\d+\}/g, "(scraped item)");
+        text = text.replace(/\{scrapeAttr\.\d+\}/g, "(attribute value)");
+        replies.push(text);
+      }
+
+      // Extract embed() calls
+      const embedRegex = /embed\(\s*\{([\s\S]*?)\}\s*\)/g;
+      const embeds: string[] = [];
+      while ((m = embedRegex.exec(code)) !== null) {
+        embeds.push(`[Embed: {${m[1]}}]`);
+      }
+
+      // Extract scrape calls for summary
+      const scrapes: string[] = [];
+      const scrapeCallRegex = /scrape(?:All|Image|Attr)?\(["'`](.+?)["'`]/g;
+      while ((m = scrapeCallRegex.exec(code)) !== null) {
+        scrapes.push(`🌐 Scraping: ${m[1]}`);
+      }
+
+      // Extract other actions
+      const actions: string[] = [];
+      if (/addRole\(/.test(code)) actions.push("➕ Add role");
+      if (/removeRole\(/.test(code)) actions.push("➖ Remove role");
+      if (/send\(/.test(code)) actions.push("📤 Send to channel");
+      if (/wait\(/.test(code)) actions.push("⏱️ Wait/delay");
+
+      const output = [
+        "── Test Output ──",
+        ...scrapes,
+        ...actions,
+        ...replies.map((r, i) => `💬 Reply${replies.length > 1 ? ` #${i+1}` : ""}: ${r}`),
+        ...embeds,
+        replies.length === 0 && embeds.length === 0 ? "⚠️ No reply() or embed() found — bot won't respond" : "",
+      ].filter(Boolean).join("\n");
+
+      setTestOutput(output);
+      toast.success("Test completed!");
+    } catch (err: any) {
+      setTestOutput(`❌ Error: ${err.message}`);
+    } finally {
+      setTestRunning(false);
+    }
   };
 
   const toggleScript = async (script: CustomScript) => {
@@ -475,10 +553,28 @@ export default function DashboardCustomCommands() {
                   </motion.div>
                 )}
 
+                {/* Test Output */}
+                {testOutput && (
+                  <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="rounded-lg border border-primary/20 bg-secondary/50 overflow-hidden">
+                    <div className="px-4 py-2.5 border-b border-primary/10 flex items-center justify-between">
+                      <span className="text-xs font-medium text-foreground">📋 Test Results</span>
+                      <button onClick={() => setTestOutput(null)} className="text-muted-foreground hover:text-foreground"><X className="w-3.5 h-3.5" /></button>
+                    </div>
+                    <pre className="p-4 text-xs font-mono text-foreground whitespace-pre-wrap leading-relaxed">{testOutput}</pre>
+                  </motion.div>
+                )}
+
                 {/* Actions */}
                 <div className="flex items-center justify-end gap-2">
                   <button onClick={cancelEdit} className="px-4 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground transition-colors">
                     Cancel
+                  </button>
+                  <button
+                    onClick={testScript}
+                    disabled={testRunning}
+                    className="flex items-center gap-2 px-4 py-2 rounded-md bg-secondary border border-border text-sm font-medium text-foreground hover:bg-accent transition-colors"
+                  >
+                    {testRunning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />} Test
                   </button>
                   <button onClick={saveScript} className="flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
                     <Save className="w-4 h-4" /> Save Script
