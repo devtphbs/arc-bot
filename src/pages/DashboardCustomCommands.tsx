@@ -336,7 +336,7 @@ export default function DashboardCustomCommands() {
       let m;
       while ((m = replyRegex.exec(code)) !== null) {
         let text = m[1];
-        Object.entries(simVars).forEach(([k, v]) => { text = text.replaceAll(k, v); });
+        Object.entries(simVars).forEach(([k, v]) => { text = text.split(k).join(v); });
         // Replace scrape results with placeholders
         text = text.replace(/\{scrape\.\d+\}/g, "(scraped text)");
         text = text.replace(/\{scrapeImage\.\d+\}/g, "(image url)");
