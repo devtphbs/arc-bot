@@ -25,6 +25,7 @@ export default function DashboardTickets() {
   const [logChannelId, setLogChannelId] = useState("");
   const [panelChannelId, setPanelChannelId] = useState("");
   const [ticketCategoryId, setTicketCategoryId] = useState("");
+  const [allowedRoles, setAllowedRoles] = useState<string[]>([]);
   const [categories, setCategories] = useState<TicketCategory[]>([
     { name: "General Support", emoji: "🎫", description: "General questions and help" },
     { name: "Bug Report", emoji: "🐛", description: "Report a bug" },
