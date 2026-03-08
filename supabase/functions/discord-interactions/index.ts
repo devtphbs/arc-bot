@@ -780,19 +780,90 @@ async function handleGiveawayEntry(interaction: any, bot: any, token: string, ad
 // ─── Ticket Close Handler ─────────────────────────────────────────
 async function handleTicketClose(interaction: any, bot: any, token: string, adminClient: any) {
   const channelId = interaction.channel_id;
+  const closedBy = interaction.member?.user?.username || "unknown";
+  const closedById = interaction.member?.user?.id || "";
+
+  // Load ticket config for log channel
+  const { data: config } = await adminClient.from("ticket_config").select("*").eq("bot_id", bot.id).maybeSingle();
+  const logChannelId = config?.log_channel_id;
+
+  // Get channel info for ticket name
+  let ticketName = channelId;
+  try {
+    const chInfoRes = await fetch(`https://discord.com/api/v10/channels/${channelId}`, {
+      headers: { Authorization: `Bot ${token}` },
+    });
+    if (chInfoRes.ok) {
+      const chInfo = await chInfoRes.json();
+      ticketName = chInfo.name || channelId;
+    }
+  } catch {}
+
+  // Build transcript from message history
+  let transcript = "";
+  try {
+    const msgsRes = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages?limit=100`, {
+      headers: { Authorization: `Bot ${token}` },
+    });
+    if (msgsRes.ok) {
+      const msgs = await msgsRes.json();
+      const sorted = msgs.reverse();
+      const lines: string[] = [];
+      for (const m of sorted) {
+        const ts = new Date(m.timestamp).toLocaleString("en-US", { timeZone: "UTC" });
+        const author = m.author?.username || "Unknown";
+        const content = m.content || "";
+        const embedText = (m.embeds || []).map((e: any) => `[Embed: ${e.title || e.description || ""}]`).join(" ");
+        lines.push(`[${ts}] ${author}: ${content}${embedText ? " " + embedText : ""}`);
+      }
+      transcript = lines.join("\n");
+    }
+  } catch {}
 
   // Log ticket close
   adminClient.from("bot_logs").insert({
     bot_id: bot.id, user_id: bot.user_id, level: "info", source: "tickets",
-    message: `Ticket closed by ${interaction.member?.user?.username || "unknown"} in channel ${channelId}`,
+    message: `Ticket ${ticketName} closed by ${closedBy}`,
   });
 
-  // Send closing message first
+  // Send closing message
   await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
     method: "POST",
     headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({ content: "🔒 This ticket is being closed..." }),
   });
+
+  // Send log + transcript to log channel
+  if (logChannelId) {
+    const logEmbed: any = {
+      title: "🔒 Ticket Closed",
+      color: 0xff4444,
+      fields: [
+        { name: "Ticket", value: ticketName, inline: true },
+        { name: "Closed By", value: `<@${closedById}>`, inline: true },
+      ],
+      timestamp: new Date().toISOString(),
+    };
+
+    await fetch(`https://discord.com/api/v10/channels/${logChannelId}/messages`, {
+      method: "POST",
+      headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ embeds: [logEmbed] }),
+    });
+
+    // Send transcript as file attachment
+    if (transcript) {
+      const formData = new FormData();
+      formData.append("payload_json", JSON.stringify({ content: `📝 **Transcript for ${ticketName}**` }));
+      formData.append("files[0]", new Blob([transcript], { type: "text/plain" }), `${ticketName}-transcript.txt`);
+
+      await fetch(`https://discord.com/api/v10/channels/${logChannelId}/messages`, {
+        method: "POST",
+        headers: { Authorization: `Bot ${token}` },
+        body: formData,
+      });
+    }
+  }
 
   // Delete the channel
   const delRes = await fetch(`https://discord.com/api/v10/channels/${channelId}`, {
@@ -811,6 +882,21 @@ async function handleTicketClose(interaction: any, bot: any, token: string, admi
 async function handleTicketClaim(interaction: any, bot: any, token: string, adminClient: any) {
   const channelId = interaction.channel_id;
   const userId = interaction.member?.user?.id;
+
+  // Send claim log to log channel
+  const { data: claimConfig } = await adminClient.from("ticket_config").select("log_channel_id").eq("bot_id", bot.id).maybeSingle();
+  if (claimConfig?.log_channel_id) {
+    let claimTicketName = channelId;
+    try {
+      const chRes = await fetch(`https://discord.com/api/v10/channels/${channelId}`, { headers: { Authorization: `Bot ${token}` } });
+      if (chRes.ok) { const ch = await chRes.json(); claimTicketName = ch.name || channelId; }
+    } catch {}
+    await fetch(`https://discord.com/api/v10/channels/${claimConfig.log_channel_id}/messages`, {
+      method: "POST",
+      headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ embeds: [{ title: "🙋 Ticket Claimed", color: 0x57f287, fields: [{ name: "Ticket", value: claimTicketName, inline: true }, { name: "Claimed By", value: `<@${userId}>`, inline: true }], timestamp: new Date().toISOString() }] }),
+    });
+  }
   const username = interaction.member?.user?.username || "Staff";
 
   // Load ticket config to check if user has support role
@@ -971,6 +1057,16 @@ async function handleTicketButton(interaction: any, bot: any, token: string, adm
     bot_id: bot.id, user_id: bot.user_id, level: "info", source: "tickets",
     message: `Ticket ${channelName} created by ${interaction.member?.user?.username || userId} (${categoryName})`,
   });
+
+  // Send creation log to log channel
+  const logChannelId = config.log_channel_id;
+  if (logChannelId) {
+    await fetch(`https://discord.com/api/v10/channels/${logChannelId}/messages`, {
+      method: "POST",
+      headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ embeds: [{ title: "🎫 Ticket Created", color: 0x5865f2, fields: [{ name: "Ticket", value: `<#${newChannel.id}> (${channelName})`, inline: true }, { name: "Created By", value: `<@${userId}>`, inline: true }, { name: "Category", value: categoryName || "General", inline: true }], timestamp: new Date().toISOString() }] }),
+    });
+  }
 
   return respond({
     type: 4,
