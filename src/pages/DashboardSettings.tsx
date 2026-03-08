@@ -1,9 +1,10 @@
 import { motion } from "framer-motion";
-import { Key, Globe, Image, Type, Trash2, Upload, Loader2, ExternalLink, Gamepad2, MessageCircle } from "lucide-react";
+import { Key, Type, Upload, Loader2, ExternalLink, Gamepad2, MessageCircle, Server, RefreshCw } from "lucide-react";
 import { useBot } from "@/hooks/useBot";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
+import { cn } from "@/lib/utils";
 
 const statusTypes = [
   { value: "online", label: "Online", color: "bg-green-500" },
@@ -30,12 +31,54 @@ export default function DashboardSettings() {
   const [activityType, setActivityType] = useState("0");
   const [presenceStatus, setPresenceStatus] = useState("online");
 
+  const [guilds, setGuilds] = useState<any[]>([]);
+  const [loadingGuilds, setLoadingGuilds] = useState(false);
+  const [selectedGuild, setSelectedGuild] = useState<string>("");
+  const [savingGuild, setSavingGuild] = useState(false);
+
   useEffect(() => {
     if (selectedBot) {
       setPrefix(selectedBot.prefix || "!");
       setBotName(selectedBot.bot_name || "");
+      setSelectedGuild((selectedBot as any).guild_id || "");
     }
   }, [selectedBot]);
+
+  const fetchGuilds = async () => {
+    if (!selectedBot) return;
+    setLoadingGuilds(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("manage-bot", {
+        body: { bot_id: selectedBot.id, action: "fetch_guilds" },
+      });
+      if (error) throw error;
+      if (data?.guilds) setGuilds(data.guilds);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to fetch servers");
+    } finally {
+      setLoadingGuilds(false);
+    }
+  };
+
+  useEffect(() => { if (selectedBot) fetchGuilds(); }, [selectedBot?.id]);
+
+  const saveMainServer = async () => {
+    if (!selectedBot) return;
+    setSavingGuild(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("manage-bot", {
+        body: { bot_id: selectedBot.id, action: "set_guild", guild_id: selectedGuild || null },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success("Main server updated!");
+      refetch();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save");
+    } finally {
+      setSavingGuild(false);
+    }
+  };
 
   const updatePrefix = async () => {
     if (!selectedBot) return;
@@ -116,6 +159,11 @@ export default function DashboardSettings() {
     refetch();
   };
 
+  const getGuildIcon = (guild: any) => {
+    if (guild.icon) return `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png?size=64`;
+    return null;
+  };
+
   return (
     <div className="p-6 lg:p-8 max-w-2xl">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
@@ -124,8 +172,59 @@ export default function DashboardSettings() {
       </motion.div>
       {!selectedBot ? <p className="text-muted-foreground mt-8">Select a bot first.</p> : (
         <div className="space-y-6 mt-8">
+          {/* Main Server */}
+          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="rounded-lg border border-primary/20 bg-card p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <Server className="w-4 h-4 text-primary" />
+                <h2 className="text-sm font-medium text-card-foreground">Main Server</h2>
+              </div>
+              <button onClick={fetchGuilds} disabled={loadingGuilds} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
+                <RefreshCw className={cn("w-3.5 h-3.5", loadingGuilds && "animate-spin")} />
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground mb-3">Set the main server this bot operates in. This lets the dashboard fetch roles, channels, and categories automatically for easier configuration.</p>
+            {guilds.length > 0 ? (
+              <div className="space-y-2 max-h-48 overflow-y-auto mb-3">
+                {guilds.map((guild) => (
+                  <button
+                    key={guild.id}
+                    onClick={() => setSelectedGuild(guild.id)}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-left transition-colors border",
+                      selectedGuild === guild.id ? "border-primary/40 bg-primary/5" : "border-border bg-background hover:bg-secondary"
+                    )}
+                  >
+                    {getGuildIcon(guild) ? (
+                      <img src={getGuildIcon(guild)!} alt="" className="w-8 h-8 rounded-full" />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-xs font-bold text-muted-foreground">
+                        {guild.name?.[0]?.toUpperCase()}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-card-foreground truncate">{guild.name}</p>
+                      <p className="text-[10px] text-muted-foreground font-mono">{guild.id}</p>
+                    </div>
+                    {selectedGuild === guild.id && <div className="w-2 h-2 rounded-full bg-primary shrink-0" />}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground mb-3">{loadingGuilds ? "Loading servers..." : "No servers found. Make sure the bot is in at least one server."}</p>
+            )}
+            <div className="flex items-center gap-2">
+              <button onClick={saveMainServer} disabled={savingGuild} className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
+                {savingGuild ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Main Server"}
+              </button>
+              {selectedGuild && (
+                <button onClick={() => setSelectedGuild("")} className="px-3 py-2 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">Clear</button>
+              )}
+            </div>
+          </motion.div>
+
           {/* Bot Identity */}
-          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="rounded-lg border border-border bg-card p-5">
+          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="rounded-lg border border-border bg-card p-5">
             <div className="flex items-center gap-3 mb-4"><Type className="w-4 h-4 text-primary" /><h2 className="text-sm font-medium text-card-foreground">Bot Identity</h2></div>
             <div className="flex items-start gap-4 mb-4">
               <div className="relative group">
@@ -158,7 +257,7 @@ export default function DashboardSettings() {
           </motion.div>
 
           {/* Custom Status */}
-          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="rounded-lg border border-border bg-card p-5">
+          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="rounded-lg border border-border bg-card p-5">
             <div className="flex items-center gap-3 mb-4"><Gamepad2 className="w-4 h-4 text-primary" /><h2 className="text-sm font-medium text-card-foreground">Custom Status</h2></div>
             <div className="space-y-3">
               <div>
@@ -190,7 +289,7 @@ export default function DashboardSettings() {
           </motion.div>
 
           {/* Bot Token */}
-          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="rounded-lg border border-border bg-card p-5">
+          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="rounded-lg border border-border bg-card p-5">
             <div className="flex items-center gap-3 mb-4"><Key className="w-4 h-4 text-primary" /><h2 className="text-sm font-medium text-card-foreground">Bot Token</h2></div>
             <div className="flex gap-3">
               <input type="password" value="••••••••••••••••••••••••••••" readOnly className="flex-1 px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground font-mono focus:outline-none" />
@@ -200,7 +299,7 @@ export default function DashboardSettings() {
           </motion.div>
 
           {/* Bot Prefix */}
-          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="rounded-lg border border-border bg-card p-5">
+          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="rounded-lg border border-border bg-card p-5">
             <div className="flex items-center gap-3 mb-4"><MessageCircle className="w-4 h-4 text-primary" /><h2 className="text-sm font-medium text-card-foreground">Bot Prefix</h2></div>
             <div className="flex gap-3">
               <input type="text" value={prefix} onChange={(e) => setPrefix(e.target.value)} className="w-32 px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-ring" />
@@ -210,7 +309,7 @@ export default function DashboardSettings() {
           </motion.div>
 
           {/* Danger Zone */}
-          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="rounded-lg border border-destructive/30 bg-card p-5">
+          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="rounded-lg border border-destructive/30 bg-card p-5">
             <h2 className="text-sm font-medium text-destructive mb-2">Danger Zone</h2>
             <p className="text-xs text-muted-foreground mb-3">Permanently disconnect this bot and delete all associated data including commands, modules, and logs.</p>
             <button onClick={disconnectBot} className="px-4 py-2 rounded-md bg-destructive text-destructive-foreground text-sm hover:opacity-90 transition-opacity">Disconnect Bot</button>
