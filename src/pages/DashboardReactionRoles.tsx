@@ -6,6 +6,7 @@ import { useBot } from "@/hooks/useBot";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import type { Json } from "@/integrations/supabase/types";
+import { DiscordEntityPicker } from "@/components/DiscordEntityPicker";
 
 interface ReactionRole {
   id: string;
@@ -208,8 +209,7 @@ export default function DashboardReactionRoles() {
 
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Channel ID</label>
-                <input type="text" value={group.channelId} onChange={(e) => updateGroup(group.id, { channelId: e.target.value })} placeholder="Paste the channel ID" className="w-full px-3 py-2 rounded-md bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring font-mono" />
+                <DiscordEntityPicker type="channel" value={group.channelId} onChange={(v) => updateGroup(group.id, { channelId: v })} label="Channel" placeholder="Select a channel" />
               </div>
               <div>
                 <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Message</label>
@@ -230,7 +230,9 @@ export default function DashboardReactionRoles() {
                         {EMOJI_OPTIONS.map((e) => <option key={e} value={e}>{e}</option>)}
                       </select>
                       <input type="text" value={role.roleName} onChange={(e) => updateRole(group.id, role.id, { roleName: e.target.value })} placeholder="Role name" className="flex-1 px-3 py-2 rounded-md bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
-                      <input type="text" value={role.roleId} onChange={(e) => updateRole(group.id, role.id, { roleId: e.target.value })} placeholder="Role ID" className="w-48 px-3 py-2 rounded-md bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring font-mono" />
+                      <div className="w-48">
+                        <DiscordEntityPicker type="role" value={role.roleId} onChange={(v) => updateRole(group.id, role.id, { roleId: v })} placeholder="Select role" />
+                      </div>
                       <button onClick={() => deleteRole(group.id, role.id)} className="text-muted-foreground hover:text-destructive transition-colors shrink-0">
                         <Trash2 className="w-4 h-4" />
                       </button>

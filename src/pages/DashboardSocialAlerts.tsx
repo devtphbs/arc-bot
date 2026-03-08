@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { Json } from "@/integrations/supabase/types";
+import { DiscordEntityPicker } from "@/components/DiscordEntityPicker";
 
 interface SocialAlert {
   id: string;
@@ -113,12 +114,10 @@ export default function DashboardSocialAlerts() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Notification Channel ID</label>
-                    <input type="text" value={alert.channelId} onChange={(e) => updateAlert(alert.id, { channelId: e.target.value })} placeholder="Channel ID" className="w-full px-3 py-2 rounded-md bg-background border border-border text-sm text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+                    <DiscordEntityPicker type="channel" value={alert.channelId} onChange={(v) => updateAlert(alert.id, { channelId: v })} label="Notification Channel" placeholder="Select channel" />
                   </div>
                   <div>
-                    <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Mention Role ID</label>
-                    <input type="text" value={alert.mentionRole} onChange={(e) => updateAlert(alert.id, { mentionRole: e.target.value })} placeholder="Optional" className="w-full px-3 py-2 rounded-md bg-background border border-border text-sm text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+                    <DiscordEntityPicker type="role" value={alert.mentionRole} onChange={(v) => updateAlert(alert.id, { mentionRole: v })} label="Mention Role" placeholder="Optional" />
                   </div>
                 </div>
                 <div>

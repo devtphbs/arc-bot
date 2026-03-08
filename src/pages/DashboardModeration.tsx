@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { Shield, AlertTriangle, Ban, Clock, MessageSquareOff, Settings, X, Plus, Trash2, Save } from "lucide-react";
+import { DiscordEntityPicker } from "@/components/DiscordEntityPicker";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useBot } from "@/hooks/useBot";
@@ -187,7 +188,11 @@ export default function DashboardModeration() {
                     {field.type === "number" && (
                       <input type="number" value={val} onChange={(e) => updateConfig(configOpen, field.key, Number(e.target.value))} className="w-full px-3 py-2 rounded-md bg-background border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
                     )}
-                    {field.type === "text" && (
+                    {field.type === "text" && field.key.includes("channel") ? (
+                      <DiscordEntityPicker type="channel" value={val} onChange={(v) => updateConfig(configOpen, field.key, v)} placeholder={`Select ${field.label}`} />
+                    ) : field.type === "text" && field.key.includes("role") ? (
+                      <DiscordEntityPicker type="role" value={val} onChange={(v) => updateConfig(configOpen, field.key, v)} placeholder={`Select ${field.label}`} />
+                    ) : field.type === "text" && (
                       <input type="text" value={val} onChange={(e) => updateConfig(configOpen, field.key, e.target.value)} className="w-full px-3 py-2 rounded-md bg-background border border-border text-sm text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-ring" />
                     )}
                     {field.type === "textarea" && (
