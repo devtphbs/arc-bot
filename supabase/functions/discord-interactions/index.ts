@@ -148,26 +148,78 @@ Deno.serve(async (req) => {
         // Remove metadata comments
         content = content.replace(/^\/\/.*/gm, "").trim();
 
-        // Execute scrape() calls and collect results
+        // ─── Scraping engine ───
+        // Cache fetched HTML pages to avoid re-fetching the same URL
+        const htmlCache: Record<string, string> = {};
+        async function fetchPage(url: string): Promise<string> {
+          if (htmlCache[url]) return htmlCache[url];
+          const res = await fetch(url, {
+            headers: { "User-Agent": "Mozilla/5.0 (compatible; ArcBot/1.0)" },
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const html = await res.text();
+          htmlCache[url] = html;
+          return html;
+        }
+
         const scrapeResults: string[] = [];
+        const scrapeImageResults: string[] = [];
+        const scrapeAllResults: string[][] = [];
+        const scrapeAttrResults: string[] = [];
+
+        // scrape("url", "selector") — get first text match
         const scrapeRegex = /scrape\(\s*["'`](.+?)["'`]\s*,\s*["'`](.+?)["'`]\s*\)/g;
         let scrapeMatch;
         while ((scrapeMatch = scrapeRegex.exec(content)) !== null) {
           const [, scrapeUrl, selector] = scrapeMatch;
           try {
-            const res = await fetch(scrapeUrl, {
-              headers: { "User-Agent": "Mozilla/5.0 (compatible; ArcBot/1.0)" },
-            });
-            if (res.ok) {
-              const html = await res.text();
-              // Extract text using regex-based CSS selector matching
-              const extracted = extractBySelector(html, selector);
-              scrapeResults.push(extracted || "(no content found)");
-            } else {
-              scrapeResults.push(`(fetch error: ${res.status})`);
-            }
+            const html = await fetchPage(scrapeUrl);
+            const extracted = extractBySelector(html, selector);
+            scrapeResults.push(extracted || "(no content found)");
           } catch (e: any) {
             scrapeResults.push(`(scrape error: ${e.message})`);
+          }
+        }
+
+        // scrapeAll("url", "selector") — get ALL matching texts as array
+        const scrapeAllRegex = /scrapeAll\(\s*["'`](.+?)["'`]\s*,\s*["'`](.+?)["'`]\s*\)/g;
+        let scrapeAllMatch;
+        while ((scrapeAllMatch = scrapeAllRegex.exec(content)) !== null) {
+          const [, scrapeUrl, selector] = scrapeAllMatch;
+          try {
+            const html = await fetchPage(scrapeUrl);
+            const items = extractAllBySelector(html, selector);
+            scrapeAllResults.push(items.length > 0 ? items : ["(no content found)"]);
+          } catch (e: any) {
+            scrapeAllResults.push([`(scrape error: ${e.message})`]);
+          }
+        }
+
+        // scrapeImage("url", "selector") — get the src attribute of an <img> inside the selector
+        const scrapeImgRegex = /scrapeImage\(\s*["'`](.+?)["'`]\s*,\s*["'`](.+?)["'`]\s*\)/g;
+        let scrapeImgMatch;
+        while ((scrapeImgMatch = scrapeImgRegex.exec(content)) !== null) {
+          const [, scrapeUrl, selector] = scrapeImgMatch;
+          try {
+            const html = await fetchPage(scrapeUrl);
+            const imgSrc = extractImageBySelector(html, selector);
+            scrapeImageResults.push(imgSrc || "(no image found)");
+          } catch (e: any) {
+            scrapeImageResults.push(`(scrape error: ${e.message})`);
+          }
+        }
+
+        // scrapeAttr("url", "selector", "attribute") — get any attribute value
+        const scrapeAttrRegex = /scrapeAttr\(\s*["'`](.+?)["'`]\s*,\s*["'`](.+?)["'`]\s*,\s*["'`](.+?)["'`]\s*\)/g;
+        let scrapeAttrMatch;
+        while ((scrapeAttrMatch = scrapeAttrRegex.exec(content)) !== null) {
+          const [, scrapeUrl, selector, attr] = scrapeAttrMatch;
+          try {
+            const html = await fetchPage(scrapeUrl);
+            const val = extractAttrBySelector(html, selector, attr);
+            scrapeAttrResults.push(val || "(no attribute found)");
+          } catch (e: any) {
+            scrapeAttrResults.push(`(scrape error: ${e.message})`);
           }
         }
 
@@ -175,9 +227,21 @@ Deno.serve(async (req) => {
         const replyMatch = content.match(/reply\(["'`](.+?)["'`]\)/s);
         let replyText = replyMatch ? replyMatch[1] : "Script executed!";
 
-        // Replace scrape results {scrape.0}, {scrape.1}, etc.
+        // Replace scrape results
         replyText = replyText.replace(/\{scrape\.(\d+)\}/g, (_: string, idx: string) => {
           return scrapeResults[parseInt(idx)] ?? "(no scrape result)";
+        });
+        replyText = replyText.replace(/\{scrapeImage\.(\d+)\}/g, (_: string, idx: string) => {
+          return scrapeImageResults[parseInt(idx)] ?? "(no image result)";
+        });
+        replyText = replyText.replace(/\{scrapeAll\.(\d+)\.(\d+)\}/g, (_: string, arrIdx: string, itemIdx: string) => {
+          return scrapeAllResults[parseInt(arrIdx)]?.[parseInt(itemIdx)] ?? "(no result)";
+        });
+        replyText = replyText.replace(/\{scrapeAll\.(\d+)\.join\(["'`](.+?)["'`]\)\}/g, (_: string, arrIdx: string, sep: string) => {
+          return scrapeAllResults[parseInt(arrIdx)]?.join(sep) ?? "(no results)";
+        });
+        replyText = replyText.replace(/\{scrapeAttr\.(\d+)\}/g, (_: string, idx: string) => {
+          return scrapeAttrResults[parseInt(idx)] ?? "(no attr result)";
         });
 
         // Replace variables
@@ -1271,30 +1335,10 @@ async function autoEndPolls(adminClient: any) {
   });
 }
 
-// ─── HTML Selector Extraction (lightweight, no DOM parser needed) ──
-function extractBySelector(html: string, selector: string): string {
-  // Support common CSS selectors: .class, #id, tag
-  let pattern: RegExp;
+// ─── HTML Selector Extraction (enhanced) ──
 
-  if (selector.startsWith("#")) {
-    // ID selector: #myId
-    const id = selector.slice(1).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    pattern = new RegExp(`id=["']${id}["'][^>]*>([\\s\\S]*?)<`, "i");
-  } else if (selector.startsWith(".")) {
-    // Class selector: .myClass
-    const cls = selector.slice(1).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    pattern = new RegExp(`class=["'][^"']*\\b${cls}\\b[^"']*["'][^>]*>([\\s\\S]*?)<`, "i");
-  } else {
-    // Tag selector: h1, p, span, etc.
-    const tag = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    pattern = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, "i");
-  }
-
-  const match = html.match(pattern);
-  if (!match) return "";
-
-  // Strip inner HTML tags and decode basic entities
-  return match[1]
+function decodeEntities(text: string): string {
+  return text
     .replace(/<[^>]*>/g, "")
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
@@ -1302,5 +1346,114 @@ function extractBySelector(html: string, selector: string): string {
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
     .trim();
+}
+
+function buildSelectorPattern(selector: string): RegExp {
+  // Support: .class, #id, tag, tag.class, .parent .child (basic descendant)
+  // Also support data attributes: [data-attr="value"]
+  const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  if (selector.includes(" ")) {
+    // Descendant selector — just use the last part for matching
+    const parts = selector.trim().split(/\s+/);
+    const last = parts[parts.length - 1];
+    return buildSelectorPattern(last);
+  }
+
+  if (selector.startsWith("#")) {
+    const id = esc(selector.slice(1));
+    return new RegExp(`<(\\w+)[^>]*\\bid=["']${id}["'][^>]*>([\\s\\S]*?)</\\1>`, "i");
+  }
+  if (selector.startsWith(".")) {
+    // Support .class1.class2
+    const classes = selector.slice(1).split(".").map(esc);
+    const classPattern = classes.map(c => `(?=[^"']*\\b${c}\\b)`).join("");
+    return new RegExp(`<(\\w+)[^>]*\\bclass=["']${classPattern}[^"']*["'][^>]*>([\\s\\S]*?)</\\1>`, "i");
+  }
+  if (selector.startsWith("[")) {
+    // Attribute selector: [data-price], [data-attr="value"]
+    const attrMatch = selector.match(/^\[(\w[\w-]*)(?:=["']?(.+?)["']?)?\]$/);
+    if (attrMatch) {
+      const attr = esc(attrMatch[1]);
+      if (attrMatch[2]) {
+        const val = esc(attrMatch[2]);
+        return new RegExp(`<(\\w+)[^>]*\\b${attr}=["']${val}["'][^>]*>([\\s\\S]*?)</\\1>`, "i");
+      }
+      return new RegExp(`<(\\w+)[^>]*\\b${attr}(?:=["'][^"']*["'])?[^>]*>([\\s\\S]*?)</\\1>`, "i");
+    }
+  }
+  // Tag with optional class: div.myclass
+  if (/^\w+\.\w/.test(selector)) {
+    const [tag, ...cls] = selector.split(".");
+    const tagEsc = esc(tag);
+    const classPattern = cls.map(esc).map(c => `(?=[^"']*\\b${c}\\b)`).join("");
+    return new RegExp(`<${tagEsc}[^>]*\\bclass=["']${classPattern}[^"']*["'][^>]*>([\\s\\S]*?)</${tagEsc}>`, "i");
+  }
+  // Plain tag
+  const tag = esc(selector);
+  return new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, "i");
+}
+
+function extractBySelector(html: string, selector: string): string {
+  const pattern = buildSelectorPattern(selector);
+  const match = html.match(pattern);
+  if (!match) return "";
+  // The captured content is in group 2 for id/class patterns, group 1 for tag patterns
+  const content = match[2] ?? match[1] ?? "";
+  return decodeEntities(content);
+}
+
+function extractAllBySelector(html: string, selector: string): string[] {
+  const pattern = buildSelectorPattern(selector);
+  const globalPattern = new RegExp(pattern.source, "gi");
+  const results: string[] = [];
+  let m;
+  while ((m = globalPattern.exec(html)) !== null) {
+    const content = m[2] ?? m[1] ?? "";
+    const decoded = decodeEntities(content);
+    if (decoded) results.push(decoded);
+    if (results.length >= 50) break; // Safety limit
+  }
+  return results;
+}
+
+function extractImageBySelector(html: string, selector: string): string {
+  const pattern = buildSelectorPattern(selector);
+  const match = html.match(pattern);
+  if (!match) {
+    // If selector itself targets an img, extract src directly
+    if (selector === "img" || selector.startsWith("img.") || selector.startsWith("img[")) {
+      const imgMatch = html.match(/<img[^>]*\bsrc=["']([^"']+)["'][^>]*>/i);
+      return imgMatch?.[1] || "";
+    }
+    return "";
+  }
+  const innerHtml = match[2] ?? match[1] ?? "";
+  // Find first <img> src within the matched element
+  const imgMatch = innerHtml.match(/<img[^>]*\bsrc=["']([^"']+)["'][^>]*>/i);
+  return imgMatch?.[1] || "";
+}
+
+function extractAttrBySelector(html: string, selector: string, attribute: string): string {
+  const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // Build a pattern to find the opening tag matching the selector
+  let tagPattern: RegExp;
+  if (selector.startsWith("#")) {
+    const id = esc(selector.slice(1));
+    tagPattern = new RegExp(`<\\w+[^>]*\\bid=["']${id}["'][^>]*>`, "i");
+  } else if (selector.startsWith(".")) {
+    const cls = esc(selector.slice(1));
+    tagPattern = new RegExp(`<\\w+[^>]*\\bclass=["'][^"']*\\b${cls}\\b[^"']*["'][^>]*>`, "i");
+  } else {
+    const tag = esc(selector);
+    tagPattern = new RegExp(`<${tag}[^>]*>`, "i");
+  }
+  const tagMatch = html.match(tagPattern);
+  if (!tagMatch) return "";
+  const attrEsc = esc(attribute);
+  const attrPattern = new RegExp(`\\b${attrEsc}=["']([^"']*)["']`);
+  const attrMatch = tagMatch[0].match(attrPattern);
+  return attrMatch?.[1] || "";
 }
