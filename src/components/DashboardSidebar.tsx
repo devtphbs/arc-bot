@@ -1,6 +1,7 @@
 import {
   LayoutDashboard, Terminal, Zap, Shield, RefreshCw, ScrollText, Settings, Bot, ChevronLeft, Plus, Circle,
-  UserPlus, Heart, BarChart3, Trophy, Ticket, Palette, Medal, FileCode,
+  UserPlus, Heart, BarChart3, Trophy, Ticket, Palette, Medal, FileCode, Music, MessageSquare, Gift, Vote,
+  Variable, Bell,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -10,22 +11,53 @@ import { useAuth } from "@/hooks/useAuth";
 import { useBot } from "@/hooks/useBot";
 import { ConnectBotModal } from "./ConnectBotModal";
 
-const navItems = [
-  { title: "Overview", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Commands", url: "/dashboard/commands", icon: Terminal },
-  { title: "Embed Builder", url: "/dashboard/embeds", icon: Palette },
-  { title: "Welcome", url: "/dashboard/welcome", icon: UserPlus },
-  { title: "Reaction Roles", url: "/dashboard/reaction-roles", icon: Heart },
-  { title: "Leveling & XP", url: "/dashboard/leveling", icon: Trophy },
-  { title: "Leaderboard", url: "/dashboard/leaderboard", icon: Medal },
-  { title: "Tickets", url: "/dashboard/tickets", icon: Ticket },
-  { title: "Events", url: "/dashboard/events", icon: Zap },
-  { title: "Moderation", url: "/dashboard/moderation", icon: Shield },
-  { title: "Automations", url: "/dashboard/automations", icon: RefreshCw },
-  { title: "Analytics", url: "/dashboard/analytics", icon: BarChart3 },
-  { title: "Logs", url: "/dashboard/logs", icon: ScrollText },
-  { title: "Export Bot", url: "/dashboard/export", icon: FileCode },
-  { title: "Settings", url: "/dashboard/settings", icon: Settings },
+const navSections = [
+  {
+    label: "Main",
+    items: [
+      { title: "Overview", url: "/dashboard", icon: LayoutDashboard },
+      { title: "Commands", url: "/dashboard/commands", icon: Terminal },
+      { title: "Embed Builder", url: "/dashboard/embeds", icon: Palette },
+    ],
+  },
+  {
+    label: "Engagement",
+    items: [
+      { title: "Welcome", url: "/dashboard/welcome", icon: UserPlus },
+      { title: "Reaction Roles", url: "/dashboard/reaction-roles", icon: Heart },
+      { title: "Leveling & XP", url: "/dashboard/leveling", icon: Trophy },
+      { title: "Leaderboard", url: "/dashboard/leaderboard", icon: Medal },
+      { title: "Giveaways", url: "/dashboard/giveaways", icon: Gift },
+      { title: "Polls", url: "/dashboard/polls", icon: Vote },
+    ],
+  },
+  {
+    label: "Modules",
+    items: [
+      { title: "Music", url: "/dashboard/music", icon: Music },
+      { title: "Auto Responder", url: "/dashboard/auto-responder", icon: MessageSquare },
+      { title: "Tickets", url: "/dashboard/tickets", icon: Ticket },
+      { title: "Social Alerts", url: "/dashboard/social-alerts", icon: Bell },
+      { title: "Variables", url: "/dashboard/variables", icon: Variable },
+    ],
+  },
+  {
+    label: "Management",
+    items: [
+      { title: "Events", url: "/dashboard/events", icon: Zap },
+      { title: "Moderation", url: "/dashboard/moderation", icon: Shield },
+      { title: "Automations", url: "/dashboard/automations", icon: RefreshCw },
+      { title: "Analytics", url: "/dashboard/analytics", icon: BarChart3 },
+      { title: "Logs", url: "/dashboard/logs", icon: ScrollText },
+    ],
+  },
+  {
+    label: "System",
+    items: [
+      { title: "Export Bot", url: "/dashboard/export", icon: FileCode },
+      { title: "Settings", url: "/dashboard/settings", icon: Settings },
+    ],
+  },
 ];
 
 export function DashboardSidebar() {
@@ -75,16 +107,20 @@ export function DashboardSidebar() {
           </div>
         )}
 
-        <nav className="flex-1 px-3 py-3 overflow-y-auto">
-          {!collapsed && <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2 px-1">Navigation</p>}
-          <div className="space-y-0.5">
-            {navItems.map((item) => (
-              <NavLink key={item.title} to={item.url} end={item.url === "/dashboard"} className={cn("flex items-center gap-3 px-2.5 py-2 rounded-md text-sm transition-all text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent", collapsed && "justify-center px-2")} activeClassName="bg-sidebar-accent text-primary font-medium glow-primary">
-                <item.icon className="w-4 h-4 shrink-0" />
-                {!collapsed && <span>{item.title}</span>}
-              </NavLink>
-            ))}
-          </div>
+        <nav className="flex-1 px-3 py-2 overflow-y-auto">
+          {navSections.map((section) => (
+            <div key={section.label} className="mb-2">
+              {!collapsed && <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1 px-1 mt-2">{section.label}</p>}
+              <div className="space-y-0.5">
+                {section.items.map((item) => (
+                  <NavLink key={item.title} to={item.url} end={item.url === "/dashboard"} className={cn("flex items-center gap-3 px-2.5 py-1.5 rounded-md text-sm transition-all text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent", collapsed && "justify-center px-2")} activeClassName="bg-sidebar-accent text-primary font-medium glow-primary">
+                    <item.icon className="w-4 h-4 shrink-0" />
+                    {!collapsed && <span>{item.title}</span>}
+                  </NavLink>
+                ))}
+              </div>
+            </div>
+          ))}
         </nav>
 
         {!collapsed && (

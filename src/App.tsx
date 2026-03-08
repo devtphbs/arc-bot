@@ -25,6 +25,12 @@ import DashboardTickets from "./pages/DashboardTickets";
 import DashboardEmbedBuilder from "./pages/DashboardEmbedBuilder";
 import DashboardLeaderboard from "./pages/DashboardLeaderboard";
 import DashboardExport from "./pages/DashboardExport";
+import DashboardMusic from "./pages/DashboardMusic";
+import DashboardAutoResponder from "./pages/DashboardAutoResponder";
+import DashboardGiveaways from "./pages/DashboardGiveaways";
+import DashboardPolls from "./pages/DashboardPolls";
+import DashboardVariables from "./pages/DashboardVariables";
+import DashboardSocialAlerts from "./pages/DashboardSocialAlerts";
 import CommandBuilder from "./pages/CommandBuilder";
 
 const queryClient = new QueryClient();
@@ -44,16 +50,22 @@ const App = () => (
                 <Route path="commands" element={<DashboardCommands />} />
                 <Route path="welcome" element={<DashboardWelcome />} />
                 <Route path="leveling" element={<DashboardLeveling />} />
+                <Route path="leaderboard" element={<DashboardLeaderboard />} />
                 <Route path="tickets" element={<DashboardTickets />} />
                 <Route path="embeds" element={<DashboardEmbedBuilder />} />
-                <Route path="leaderboard" element={<DashboardLeaderboard />} />
-                <Route path="export" element={<DashboardExport />} />
                 <Route path="reaction-roles" element={<DashboardReactionRoles />} />
+                <Route path="music" element={<DashboardMusic />} />
+                <Route path="auto-responder" element={<DashboardAutoResponder />} />
+                <Route path="giveaways" element={<DashboardGiveaways />} />
+                <Route path="polls" element={<DashboardPolls />} />
+                <Route path="variables" element={<DashboardVariables />} />
+                <Route path="social-alerts" element={<DashboardSocialAlerts />} />
                 <Route path="events" element={<DashboardEvents />} />
                 <Route path="moderation" element={<DashboardModeration />} />
                 <Route path="automations" element={<DashboardAutomations />} />
                 <Route path="analytics" element={<DashboardAnalytics />} />
                 <Route path="logs" element={<DashboardLogs />} />
+                <Route path="export" element={<DashboardExport />} />
                 <Route path="settings" element={<DashboardSettings />} />
               </Route>
               <Route path="/dashboard/command-builder" element={<ProtectedRoute><BotProvider><CommandBuilder /></BotProvider></ProtectedRoute>} />
