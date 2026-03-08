@@ -14,6 +14,59 @@ export type Database = {
   }
   public: {
     Tables: {
+      active_giveaways: {
+        Row: {
+          bot_id: string
+          channel_id: string
+          color: string | null
+          created_at: string
+          end_color: string | null
+          ended: boolean
+          ends_at: string
+          guild_id: string
+          id: string
+          message_id: string
+          prize: string
+          winners_count: number
+        }
+        Insert: {
+          bot_id: string
+          channel_id: string
+          color?: string | null
+          created_at?: string
+          end_color?: string | null
+          ended?: boolean
+          ends_at: string
+          guild_id: string
+          id?: string
+          message_id: string
+          prize: string
+          winners_count?: number
+        }
+        Update: {
+          bot_id?: string
+          channel_id?: string
+          color?: string | null
+          created_at?: string
+          end_color?: string | null
+          ended?: boolean
+          ends_at?: string
+          guild_id?: string
+          id?: string
+          message_id?: string
+          prize?: string
+          winners_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "active_giveaways_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       auto_backups: {
         Row: {
           backup_data: Json
@@ -323,6 +376,35 @@ export type Database = {
           },
         ]
       }
+      giveaway_entries: {
+        Row: {
+          created_at: string
+          giveaway_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          giveaway_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          giveaway_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "giveaway_entries_giveaway_id_fkey"
+            columns: ["giveaway_id"]
+            isOneToOne: false
+            referencedRelation: "active_giveaways"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leveling_config: {
         Row: {
           bot_id: string
@@ -463,6 +545,7 @@ export type Database = {
           log_channel_id: string | null
           max_tickets_per_user: number
           support_role_id: string | null
+          support_role_ids: Json | null
           ticket_categories: Json | null
           updated_at: string
           user_id: string
@@ -477,6 +560,7 @@ export type Database = {
           log_channel_id?: string | null
           max_tickets_per_user?: number
           support_role_id?: string | null
+          support_role_ids?: Json | null
           ticket_categories?: Json | null
           updated_at?: string
           user_id: string
@@ -491,6 +575,7 @@ export type Database = {
           log_channel_id?: string | null
           max_tickets_per_user?: number
           support_role_id?: string | null
+          support_role_ids?: Json | null
           ticket_categories?: Json | null
           updated_at?: string
           user_id?: string

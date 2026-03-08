@@ -53,6 +53,9 @@ Deno.serve(async (req) => {
     if (interaction.action === "deploy_ticket_panel") {
       return await deployTicketPanel(adminClient, interaction);
     }
+    if (interaction.action === "end_giveaways") {
+      return await autoEndGiveaways(adminClient);
+    }
 
     const signature = req.headers.get("x-signature-ed25519");
     const timestamp = req.headers.get("x-signature-timestamp");
@@ -136,13 +139,21 @@ Deno.serve(async (req) => {
     // Button interactions (type 3 = MESSAGE_COMPONENT)
     if (interaction.type === 3) {
       const customId = interaction.data?.custom_id || "";
-      
+
       // Giveaway entry button
       if (customId.startsWith("giveaway_enter_")) {
         return await handleGiveawayEntry(interaction, bot, token, adminClient);
       }
 
-      // Ticket category button
+      // IMPORTANT: Check ticket_close_ and ticket_claim_ BEFORE ticket_ to avoid creating a new ticket
+      if (customId.startsWith("ticket_close_")) {
+        return await handleTicketClose(interaction, bot, token, adminClient);
+      }
+      if (customId.startsWith("ticket_claim_")) {
+        return await handleTicketClaim(interaction, bot, token, adminClient);
+      }
+
+      // Ticket category button (opens new ticket)
       if (customId.startsWith("ticket_")) {
         return await handleTicketButton(interaction, bot, token, adminClient);
       }
@@ -178,10 +189,10 @@ async function deployTicketPanel(adminClient: any, payload: any) {
       row.components = [];
     }
     row.components.push({
-      type: 2, // Button
-      style: 1, // Primary
+      type: 2,
+      style: 1,
       label: `${cat.emoji} ${cat.name}`,
-      custom_id: `ticket_${i}_${cat.name.replace(/\s/g, "_").toLowerCase()}`,
+      custom_id: `ticket_cat_${i}_${cat.name.replace(/\s/g, "_").toLowerCase()}`,
     });
   });
   if (row.components.length > 0) components.push(row);
@@ -217,51 +228,142 @@ async function handleGiveawayEntry(interaction: any, bot: any, token: string, ad
   const userId = interaction.member?.user?.id;
   const memberRoles: string[] = interaction.member?.roles || [];
   const customId = interaction.data?.custom_id || "";
-  // custom_id format: giveaway_enter_{messageId}
-  const messageId = customId.replace("giveaway_enter_", "");
+  const messageId = interaction.message?.id;
 
-  // Load giveaway config
+  if (!messageId) {
+    return respond({ type: 4, data: { content: "❌ Could not identify giveaway.", flags: 64 } });
+  }
+
+  // Find active giveaway by message_id
+  const { data: giveaway } = await adminClient.from("active_giveaways").select("*").eq("message_id", messageId).eq("ended", false).maybeSingle();
+  if (!giveaway) {
+    return respond({ type: 4, data: { content: "❌ This giveaway has already ended.", flags: 64 } });
+  }
+
+  // Check role/bypass requirements from giveaway config
   const { data: mod } = await adminClient.from("bot_modules").select("config").eq("bot_id", bot.id).eq("module_name", "giveaways").maybeSingle();
   const giveaways = (mod?.config as any)?.giveaways || [];
-  
-  // Find matching giveaway template (by checking if any has matching requirements)
-  // For now, use the first active giveaway template for validation
-  const template = giveaways.find((g: any) => g.active) || giveaways[0];
+  const template = giveaways.find((g: any) => g.prize === giveaway.prize) || giveaways[0];
 
   if (template) {
-    const bypassRole = template.bypassRole;
-    const hasBypass = bypassRole && memberRoles.includes(bypassRole);
-
-    if (!hasBypass) {
-      // Check role requirement
-      if (template.roleRequirement && !memberRoles.includes(template.roleRequirement)) {
-        return respond({
-          type: 4,
-          data: { content: `❌ You need the <@&${template.roleRequirement}> role to enter this giveaway.`, flags: 64 },
-        });
-      }
-      // Message requirement is informational (can't verify server-wide message count via interactions API)
-      if (template.requiredMessages && template.requiredMessages > 0) {
-        // We can't reliably check message count here, so we trust the requirement is displayed
-      }
+    const hasBypass = template.bypassRole && memberRoles.includes(template.bypassRole);
+    if (!hasBypass && template.roleRequirement && !memberRoles.includes(template.roleRequirement)) {
+      return respond({ type: 4, data: { content: `❌ You need the <@&${template.roleRequirement}> role to enter.`, flags: 64 } });
     }
   }
 
-  // Acknowledge the entry
-  return respond({
-    type: 4,
-    data: { content: "🎉 You have entered the giveaway! Good luck!", flags: 64 },
-  });
+  // Insert entry (unique constraint handles duplicates)
+  const { error } = await adminClient.from("giveaway_entries").insert({ giveaway_id: giveaway.id, user_id: userId });
+  if (error && error.code === "23505") {
+    return respond({ type: 4, data: { content: "⚠️ You already entered this giveaway!", flags: 64 } });
+  }
+
+  // Count entries
+  const { count } = await adminClient.from("giveaway_entries").select("*", { count: "exact", head: true }).eq("giveaway_id", giveaway.id);
+
+  return respond({ type: 4, data: { content: `🎉 You have entered the giveaway! (${count || 1} total entries) Good luck!`, flags: 64 } });
 }
 
-// ─── Ticket Button Handler ─────────────────────────────────────────
+// ─── Ticket Close Handler ─────────────────────────────────────────
+async function handleTicketClose(interaction: any, bot: any, token: string, adminClient: any) {
+  const channelId = interaction.channel_id;
+
+  // Log ticket close
+  adminClient.from("bot_logs").insert({
+    bot_id: bot.id, user_id: bot.user_id, level: "info", source: "tickets",
+    message: `Ticket closed by ${interaction.member?.user?.username || "unknown"} in channel ${channelId}`,
+  });
+
+  // Send closing message first
+  await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+    method: "POST",
+    headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ content: "🔒 This ticket is being closed..." }),
+  });
+
+  // Delete the channel
+  const delRes = await fetch(`https://discord.com/api/v10/channels/${channelId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bot ${token}` },
+  });
+
+  if (!delRes.ok) {
+    return respond({ type: 4, data: { content: "❌ Failed to close ticket. Bot needs Manage Channels permission.", flags: 64 } });
+  }
+
+  return respond({ type: 4, data: { content: "🔒 Ticket closed.", flags: 64 } });
+}
+
+// ─── Ticket Claim Handler ─────────────────────────────────────────
+async function handleTicketClaim(interaction: any, bot: any, token: string, adminClient: any) {
+  const channelId = interaction.channel_id;
+  const userId = interaction.member?.user?.id;
+  const username = interaction.member?.user?.username || "Staff";
+
+  // Load ticket config to check if user has support role
+  const { data: config } = await adminClient.from("ticket_config").select("*").eq("bot_id", bot.id).maybeSingle();
+  const supportRoleIds: string[] = (config?.support_role_ids as string[]) || [];
+  // Also check legacy single role
+  if (config?.support_role_id && !supportRoleIds.includes(config.support_role_id)) {
+    supportRoleIds.push(config.support_role_id);
+  }
+  const memberRoles: string[] = interaction.member?.roles || [];
+  const hasSupport = supportRoleIds.length === 0 || supportRoleIds.some(r => memberRoles.includes(r));
+
+  if (!hasSupport) {
+    return respond({ type: 4, data: { content: "❌ Only support staff can claim tickets.", flags: 64 } });
+  }
+
+  // Update the channel topic to show who claimed it
+  await fetch(`https://discord.com/api/v10/channels/${channelId}`, {
+    method: "PATCH",
+    headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ topic: `Claimed by ${username}` }),
+  });
+
+  // Send claim message
+  await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+    method: "POST",
+    headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      embeds: [{
+        description: `✅ This ticket has been claimed by <@${userId}>`,
+        color: 0x57f287,
+      }],
+    }),
+  });
+
+  // Update the original message to disable claim button
+  if (interaction.message?.id) {
+    const originalComponents = interaction.message.components || [];
+    const updatedComponents = originalComponents.map((row: any) => ({
+      ...row,
+      components: row.components?.map((btn: any) => {
+        if (btn.custom_id?.startsWith("ticket_claim_")) {
+          return { ...btn, disabled: true, label: `✅ Claimed by ${username}` };
+        }
+        return btn;
+      }),
+    }));
+
+    await fetch(`https://discord.com/api/v10/channels/${channelId}/messages/${interaction.message.id}`, {
+      method: "PATCH",
+      headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ components: updatedComponents }),
+    });
+  }
+
+  return respond({ type: 4, data: { content: `✅ You claimed this ticket.`, flags: 64 } });
+}
+
+// ─── Ticket Button Handler (create new ticket) ────────────────────
 async function handleTicketButton(interaction: any, bot: any, token: string, adminClient: any) {
   const userId = interaction.member?.user?.id;
   const guildId = interaction.guild_id;
   const customId = interaction.data?.custom_id || "";
-  // custom_id format: ticket_{index}_{category_name}
-  const parts = customId.split("_");
-  const categoryName = parts.slice(2).join("_").replace(/_/g, " ");
+  // custom_id format: ticket_cat_{index}_{category_name}
+  const parts = customId.replace("ticket_cat_", "").split("_");
+  const categoryName = parts.slice(1).join("_").replace(/_/g, " ");
 
   // Load ticket config
   const { data: config } = await adminClient.from("ticket_config").select("*").eq("bot_id", bot.id).maybeSingle();
@@ -270,33 +372,32 @@ async function handleTicketButton(interaction: any, bot: any, token: string, adm
   }
 
   const categoryId = config.category_id;
-  const supportRoleId = config.support_role_id;
   const welcomeMessage = config.welcome_message || "Thank you for creating a ticket!";
 
-  // Count existing tickets for this user by checking channels (simple increment approach)
-  // Generate ticket number from a simple counter
+  // Get all support role IDs
+  const supportRoleIds: string[] = (config.support_role_ids as string[]) || [];
+  if (config.support_role_id && !supportRoleIds.includes(config.support_role_id)) {
+    supportRoleIds.push(config.support_role_id);
+  }
+
   const ticketNumber = String(Date.now()).slice(-4).padStart(4, "0");
   const channelName = `ticket-${ticketNumber}`;
 
   // Permission overwrites
   const permissionOverwrites: any[] = [
-    // Deny @everyone
-    { id: guildId, type: 0, deny: "1024" }, // VIEW_CHANNEL
-    // Allow the ticket creator
-    { id: userId, type: 1, allow: "3072" }, // VIEW_CHANNEL + SEND_MESSAGES
+    { id: guildId, type: 0, deny: "1024" },
+    { id: userId, type: 1, allow: "3072" },
   ];
-  if (supportRoleId) {
-    permissionOverwrites.push({ id: supportRoleId, type: 0, allow: "3072" });
+  for (const roleId of supportRoleIds) {
+    if (roleId) permissionOverwrites.push({ id: roleId, type: 0, allow: "3072" });
   }
 
   const channelPayload: any = {
     name: channelName,
-    type: 0, // Text channel
+    type: 0,
     permission_overwrites: permissionOverwrites,
   };
-  if (categoryId) {
-    channelPayload.parent_id = categoryId;
-  }
+  if (categoryId) channelPayload.parent_id = categoryId;
 
   const chRes = await fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
     method: "POST",
@@ -312,16 +413,20 @@ async function handleTicketButton(interaction: any, bot: any, token: string, adm
 
   const newChannel = await chRes.json();
 
-  // Send welcome message in the new channel
+  // Build support role pings
+  const rolePings = supportRoleIds.filter(Boolean).map(r => `<@&${r}>`).join(" ");
+
   const msg = welcomeMessage
     .replace("{user}", `<@${userId}>`)
     .replace("{ticket_id}", channelName)
     .replace("{category}", categoryName);
 
+  // Send welcome message with close + claim buttons, ping support roles
   await fetch(`https://discord.com/api/v10/channels/${newChannel.id}/messages`, {
     method: "POST",
     headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({
+      content: rolePings ? `${rolePings} — New ticket from <@${userId}>` : undefined,
       embeds: [{
         title: `🎫 ${categoryName || "Support Ticket"}`,
         description: msg,
@@ -330,28 +435,118 @@ async function handleTicketButton(interaction: any, bot: any, token: string, adm
       }],
       components: [{
         type: 1,
-        components: [{
-          type: 2,
-          style: 4, // Danger
-          label: "🔒 Close Ticket",
-          custom_id: `ticket_close_${newChannel.id}`,
-        }],
+        components: [
+          {
+            type: 2,
+            style: 3, // Success green
+            label: "🙋 Claim Ticket",
+            custom_id: `ticket_claim_${newChannel.id}`,
+          },
+          {
+            type: 2,
+            style: 4, // Danger red
+            label: "🔒 Close Ticket",
+            custom_id: `ticket_close_${newChannel.id}`,
+          },
+        ],
       }],
     }),
   });
 
   // Log
   adminClient.from("bot_logs").insert({
-    bot_id: bot.id,
-    user_id: bot.user_id,
-    level: "info",
-    source: "tickets",
-    message: `Ticket ${channelName} created by user ${interaction.member?.user?.username || userId} (${categoryName})`,
+    bot_id: bot.id, user_id: bot.user_id, level: "info", source: "tickets",
+    message: `Ticket ${channelName} created by ${interaction.member?.user?.username || userId} (${categoryName})`,
   });
 
   return respond({
     type: 4,
     data: { content: `✅ Your ticket has been created: <#${newChannel.id}>`, flags: 64 },
+  });
+}
+
+// ─── Auto-End Giveaways ────────────────────────────────────────────
+async function autoEndGiveaways(adminClient: any) {
+  const now = new Date().toISOString();
+  const { data: expiredGiveaways } = await adminClient
+    .from("active_giveaways")
+    .select("*")
+    .eq("ended", false)
+    .lte("ends_at", now);
+
+  if (!expiredGiveaways?.length) {
+    return new Response(JSON.stringify({ ended: 0 }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  let endedCount = 0;
+  for (const giveaway of expiredGiveaways) {
+    try {
+      const { data: bot } = await adminClient.from("bots").select("*").eq("id", giveaway.bot_id).maybeSingle();
+      if (!bot) continue;
+      const token = atob(bot.token_encrypted);
+
+      // Get all entries
+      const { data: entries } = await adminClient.from("giveaway_entries").select("user_id").eq("giveaway_id", giveaway.id);
+      const entryList = entries || [];
+
+      // Pick random winners
+      const winnersCount = Math.min(giveaway.winners_count, entryList.length);
+      const shuffled = entryList.sort(() => Math.random() - 0.5);
+      const winners = shuffled.slice(0, winnersCount);
+      const winnerMentions = winners.map((w: any) => `<@${w.user_id}>`);
+
+      const endColor = giveaway.end_color ? parseInt(String(giveaway.end_color).replace("#", ""), 16) : 0xff4444;
+
+      const winnerText = winnerMentions.length > 0
+        ? `🏆 **Winner${winnerMentions.length > 1 ? "s" : ""}:** ${winnerMentions.join(", ")}`
+        : "No valid entries — no winners.";
+
+      // Edit the original giveaway message
+      await fetch(`https://discord.com/api/v10/channels/${giveaway.channel_id}/messages/${giveaway.message_id}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          embeds: [{
+            title: "🎉 GIVEAWAY ENDED 🎉",
+            description: `**${giveaway.prize}**\n\n${winnerText}\n\n📊 **Total Entries:** ${entryList.length}`,
+            color: endColor,
+            footer: { text: "Giveaway ended" },
+            timestamp: new Date().toISOString(),
+          }],
+          components: [{
+            type: 1,
+            components: [{
+              type: 2,
+              style: 2, // Grey
+              label: "🎉 Giveaway Ended",
+              custom_id: `giveaway_ended_${giveaway.message_id}`,
+              disabled: true,
+            }],
+          }],
+        }),
+      });
+
+      // Send winner announcement
+      if (winnerMentions.length > 0) {
+        await fetch(`https://discord.com/api/v10/channels/${giveaway.channel_id}/messages`, {
+          method: "POST",
+          headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            content: `🎉 Congratulations ${winnerMentions.join(", ")}! You won **${giveaway.prize}**!`,
+          }),
+        });
+      }
+
+      // Mark as ended
+      await adminClient.from("active_giveaways").update({ ended: true }).eq("id", giveaway.id);
+      endedCount++;
+    } catch (err) {
+      console.error("Error ending giveaway:", err);
+    }
+  }
+
+  return new Response(JSON.stringify({ ended: endedCount }), {
+    status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 }
 
@@ -374,11 +569,11 @@ async function handleModuleCommand(
       const durationStr = interaction.data?.options?.[0]?.options?.find((o: any) => o.name === "duration")?.value || "1d";
       const winners = interaction.data?.options?.[0]?.options?.find((o: any) => o.name === "winners")?.value || 1;
 
-      // Find matching template or use defaults
       const template = giveaways.find((g: any) => g.prize === prize) || giveaways[0] || {};
       const durationSecs = parseDuration(String(durationStr));
       const endTime = Math.floor(Date.now() / 1000) + durationSecs;
       const color = template.color ? parseInt(String(template.color).replace("#", ""), 16) : 0xffd700;
+      const endColor = template.endColor || "#FF4444";
 
       const requirements: string[] = [];
       if (template.roleRequirement) requirements.push(`🔒 Required Role: <@&${template.roleRequirement}>`);
@@ -402,7 +597,7 @@ async function handleModuleCommand(
             type: 1,
             components: [{
               type: 2,
-              style: 3, // Success (green)
+              style: 3,
               label: "🎉 Enter Giveaway",
               custom_id: `giveaway_enter_${Date.now()}`,
             }],
@@ -411,14 +606,65 @@ async function handleModuleCommand(
       });
 
       if (msgRes.ok) {
+        const sentMsg = await msgRes.json();
+        // Store active giveaway in DB
+        await adminClient.from("active_giveaways").insert({
+          bot_id: bot.id,
+          message_id: sentMsg.id,
+          channel_id: channelId,
+          guild_id: guildId,
+          prize,
+          winners_count: winners,
+          ends_at: new Date(endTime * 1000).toISOString(),
+          color: template.color || "#FFD700",
+          end_color: endColor,
+        });
         return { type: 4, data: { content: `🎉 Giveaway for **${prize}** started! Ends <t:${endTime}:R>`, flags: 64 } };
       }
       return { type: 4, data: { content: "❌ Failed to create giveaway.", flags: 64 } };
     }
 
-    if (subCommand === "end" || subCommand === "reroll") {
-      // End giveaway - show winner names
-      return { type: 4, data: { content: `✅ Giveaway ${subCommand} executed. Winners will be announced in the giveaway message.`, flags: 64 } };
+    if (subCommand === "end") {
+      // End all active giveaways in this channel
+      const { data: activeGiveaways } = await adminClient.from("active_giveaways").select("*").eq("bot_id", bot.id).eq("channel_id", channelId).eq("ended", false);
+      if (!activeGiveaways?.length) {
+        return { type: 4, data: { content: "❌ No active giveaways in this channel.", flags: 64 } };
+      }
+      // Force end by setting ends_at to now
+      for (const g of activeGiveaways) {
+        await adminClient.from("active_giveaways").update({ ends_at: new Date().toISOString() }).eq("id", g.id);
+      }
+      // Trigger auto-end
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      await fetch(`${supabaseUrl}/functions/v1/discord-interactions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "end_giveaways" }),
+      });
+      return { type: 4, data: { content: `✅ Ending ${activeGiveaways.length} giveaway(s)... Winners will be announced shortly.`, flags: 64 } };
+    }
+
+    if (subCommand === "reroll") {
+      // Find most recent ended giveaway in this channel
+      const { data: ended } = await adminClient.from("active_giveaways").select("*").eq("bot_id", bot.id).eq("channel_id", channelId).eq("ended", true).order("ends_at", { ascending: false }).limit(1);
+      if (!ended?.length) {
+        return { type: 4, data: { content: "❌ No ended giveaways to reroll.", flags: 64 } };
+      }
+      const giveaway = ended[0];
+      const { data: entries } = await adminClient.from("giveaway_entries").select("user_id").eq("giveaway_id", giveaway.id);
+      if (!entries?.length) {
+        return { type: 4, data: { content: "❌ No entries to reroll from.", flags: 64 } };
+      }
+      const shuffled = entries.sort(() => Math.random() - 0.5);
+      const newWinners = shuffled.slice(0, Math.min(giveaway.winners_count, entries.length));
+      const mentions = newWinners.map((w: any) => `<@${w.user_id}>`).join(", ");
+
+      await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+        method: "POST",
+        headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ content: `🎉 **Reroll!** New winner${newWinners.length > 1 ? "s" : ""}: ${mentions} for **${giveaway.prize}**!` }),
+      });
+      return { type: 4, data: { content: `✅ Rerolled! New winners: ${mentions}`, flags: 64 } };
     }
 
     if (subCommand === "list") {
@@ -444,12 +690,17 @@ async function handleModuleCommand(
       const ticketNumber = String(Date.now()).slice(-4).padStart(4, "0");
       const channelName = `ticket-${ticketNumber}`;
 
+      const supportRoleIds: string[] = (ticketConfig.support_role_ids as string[]) || [];
+      if (ticketConfig.support_role_id && !supportRoleIds.includes(ticketConfig.support_role_id)) {
+        supportRoleIds.push(ticketConfig.support_role_id);
+      }
+
       const permissionOverwrites: any[] = [
         { id: guildId, type: 0, deny: "1024" },
         { id: userId, type: 1, allow: "3072" },
       ];
-      if (ticketConfig.support_role_id) {
-        permissionOverwrites.push({ id: ticketConfig.support_role_id, type: 0, allow: "3072" });
+      for (const roleId of supportRoleIds) {
+        if (roleId) permissionOverwrites.push({ id: roleId, type: 0, allow: "3072" });
       }
 
       const channelPayload: any = { name: channelName, type: 0, permission_overwrites: permissionOverwrites };
@@ -464,6 +715,7 @@ async function handleModuleCommand(
       if (!chRes.ok) return { type: 4, data: { content: "❌ Failed to create ticket. Bot needs Manage Channels permission.", flags: 64 } };
       const ch = await chRes.json();
 
+      const rolePings = supportRoleIds.filter(Boolean).map(r => `<@&${r}>`).join(" ");
       const msg = (ticketConfig.welcome_message || "Ticket created!")
         .replace("{user}", `<@${userId}>`)
         .replace("{ticket_id}", channelName)
@@ -473,8 +725,15 @@ async function handleModuleCommand(
         method: "POST",
         headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          embeds: [{ title: `🎫 ${categoryName}`, description: msg, color: 0x5865f2 }],
-          components: [{ type: 1, components: [{ type: 2, style: 4, label: "🔒 Close Ticket", custom_id: `ticket_close_${ch.id}` }] }],
+          content: rolePings ? `${rolePings} — New ticket from <@${userId}>` : undefined,
+          embeds: [{ title: `🎫 ${categoryName}`, description: msg, color: 0x5865f2, footer: { text: `Ticket ${channelName}` } }],
+          components: [{
+            type: 1,
+            components: [
+              { type: 2, style: 3, label: "🙋 Claim Ticket", custom_id: `ticket_claim_${ch.id}` },
+              { type: 2, style: 4, label: "🔒 Close Ticket", custom_id: `ticket_close_${ch.id}` },
+            ],
+          }],
         }),
       });
 
@@ -482,7 +741,6 @@ async function handleModuleCommand(
     }
 
     if (subCommand === "close") {
-      // Delete the current channel
       await fetch(`https://discord.com/api/v10/channels/${channelId}`, {
         method: "DELETE",
         headers: { Authorization: `Bot ${token}` },
