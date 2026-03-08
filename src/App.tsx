@@ -36,6 +36,8 @@ import DashboardStatus from "./pages/DashboardStatus";
 import DashboardAuditLog from "./pages/DashboardAuditLog";
 import DashboardCustomCommands from "./pages/DashboardCustomCommands";
 import CommandBuilder from "./pages/CommandBuilder";
+import DashboardScheduledMessages from "./pages/DashboardScheduledMessages";
+import DashboardServerAnalytics from "./pages/DashboardServerAnalytics";
 
 const queryClient = new QueryClient();
 
@@ -69,6 +71,8 @@ const App = () => (
                 <Route path="moderation" element={<DashboardModeration />} />
                 <Route path="automations" element={<DashboardAutomations />} />
                 <Route path="analytics" element={<DashboardAnalytics />} />
+                <Route path="server-analytics" element={<DashboardServerAnalytics />} />
+                <Route path="scheduled-messages" element={<DashboardScheduledMessages />} />
                 <Route path="logs" element={<DashboardLogs />} />
                 <Route path="audit-log" element={<DashboardAuditLog />} />
                 <Route path="status" element={<DashboardStatus />} />
