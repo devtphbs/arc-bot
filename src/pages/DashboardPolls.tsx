@@ -80,7 +80,7 @@ export default function DashboardPolls() {
     if (!selectedBot || !user) return;
     setSaving(true);
     try {
-      const config = { polls } as unknown as Json;
+      const config = { polls, allowedRoles } as unknown as Json;
       const { data: existing } = await supabase.from("bot_modules").select("id").eq("bot_id", selectedBot.id).eq("module_name", "polls").maybeSingle();
       if (existing) {
         await supabase.from("bot_modules").update({ enabled, config }).eq("id", existing.id);
