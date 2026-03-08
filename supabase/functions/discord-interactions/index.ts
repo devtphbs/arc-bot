@@ -847,29 +847,113 @@ async function handleModuleCommand(
 
   // ── Poll Commands ──
   if (commandName === "poll" && modules.polls) {
-    const question = interaction.data?.options?.find((o: any) => o.name === "question")?.value || "No question";
-    const optionsRaw = interaction.data?.options?.find((o: any) => o.name === "options")?.value || "";
-    const opts = optionsRaw.split(",").map((o: string) => o.trim()).filter(Boolean);
-    const emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
-    const description = opts.length > 0 ? opts.map((o: string, i: number) => `${emojis[i] || "▫️"} ${o}`).join("\n") : "👍 Yes\n👎 No";
-    const embed = { title: `📊 ${question}`, description, color: 0x5865f2, footer: { text: `Poll by ${interaction.member?.user?.username || "someone"}` } };
+    const config = modules.polls;
+    const pollTemplates = (config.polls as any[]) || [];
 
-    const msgRes = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
-      method: "POST",
-      headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ embeds: [embed] }),
-    });
-    if (msgRes.ok) {
-      const msg = await msgRes.json();
-      const reactEmojis = opts.length > 0 ? emojis.slice(0, opts.length) : ["👍", "👎"];
-      for (const emoji of reactEmojis) {
-        await fetch(`https://discord.com/api/v10/channels/${channelId}/messages/${msg.id}/reactions/${encodeURIComponent(emoji)}/@me`, {
-          method: "PUT", headers: { Authorization: `Bot ${token}` },
-        });
+    // Check allowed roles
+    if (pollTemplates.length > 0) {
+      const template = pollTemplates[0];
+      const allowedRoles = (template.allowedRoles as string[]) || [];
+      if (allowedRoles.length > 0 && !allowedRoles.some((r: string) => memberRoles.includes(r))) {
+        return { type: 4, data: { content: "❌ You don't have permission to use poll commands.", flags: 64 } };
       }
-      return { type: 4, data: { content: "📊 Poll created!", flags: 64 } };
     }
-    return { type: 4, data: { content: "❌ Failed to create poll.", flags: 64 } };
+
+    if (subCommand === "create" || !subCommand) {
+      const getOpt = (name: string) => {
+        // Handle both flat options and subcommand options
+        const flatOpt = interaction.data?.options?.find((o: any) => o.name === name)?.value;
+        if (flatOpt !== undefined) return flatOpt;
+        const subOpts = interaction.data?.options?.[0]?.options;
+        return subOpts?.find((o: any) => o.name === name)?.value;
+      };
+
+      const question = getOpt("question") || "No question";
+      const optionsRaw = getOpt("options") || "";
+      const durationStr = getOpt("duration") || (pollTemplates[0]?.duration || "1d");
+      const multipleChoice = pollTemplates[0]?.multipleChoice || false;
+
+      const opts = optionsRaw ? String(optionsRaw).split(",").map((o: string) => o.trim()).filter(Boolean) : ["Yes", "No"];
+      const emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
+      const durationSecs = parseDuration(String(durationStr));
+      const endTime = Math.floor(Date.now() / 1000) + durationSecs;
+
+      const description = opts.map((o: string, i: number) => `${emojis[i] || "▫️"} ${o} — **0 votes**`).join("\n");
+      const embed = {
+        title: `📊 ${question}`,
+        description: `${description}\n\n⏰ Ends <t:${endTime}:R>${multipleChoice ? "\n✅ Multiple choices allowed" : ""}`,
+        color: 0x5865f2,
+        footer: { text: `Poll by ${interaction.member?.user?.username || "someone"} • 0 total votes` },
+      };
+
+      // Build vote buttons
+      const components: any[] = [];
+      let currentRow: any = { type: 1, components: [] };
+      const pollId = `${Date.now()}`;
+      opts.forEach((opt: string, i: number) => {
+        if (currentRow.components.length >= 5) {
+          components.push(currentRow);
+          currentRow = { type: 1, components: [] };
+        }
+        currentRow.components.push({
+          type: 2,
+          style: 2,
+          label: `${emojis[i] || "▫️"} ${opt}`,
+          custom_id: `poll_vote_${pollId}_${i}`,
+        });
+      });
+      if (currentRow.components.length > 0) components.push(currentRow);
+
+      const msgRes = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+        method: "POST",
+        headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ embeds: [embed], components }),
+      });
+
+      if (msgRes.ok) {
+        const msg = await msgRes.json();
+        // Store active poll
+        const votes: Record<string, string[]> = {};
+        opts.forEach((_: string, i: number) => { votes[String(i)] = []; });
+        await adminClient.from("active_polls").insert({
+          bot_id: bot.id,
+          message_id: msg.id,
+          channel_id: channelId,
+          guild_id: guildId,
+          question,
+          options: opts,
+          votes,
+          ends_at: new Date(endTime * 1000).toISOString(),
+          multiple_choice: multipleChoice,
+          anonymous: pollTemplates[0]?.anonymous || false,
+        });
+        return { type: 4, data: { content: `📊 Poll created! Ends <t:${endTime}:R>`, flags: 64 } };
+      }
+      return { type: 4, data: { content: "❌ Failed to create poll.", flags: 64 } };
+    }
+
+    if (subCommand === "end") {
+      const { data: activePolls } = await adminClient.from("active_polls").select("*").eq("bot_id", bot.id).eq("channel_id", channelId).eq("ended", false);
+      if (!activePolls?.length) return { type: 4, data: { content: "❌ No active polls in this channel.", flags: 64 } };
+      for (const p of activePolls) {
+        await adminClient.from("active_polls").update({ ends_at: new Date().toISOString() }).eq("id", p.id);
+      }
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      await fetch(`${supabaseUrl}/functions/v1/discord-interactions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "end_polls" }),
+      });
+      return { type: 4, data: { content: `✅ Ending ${activePolls.length} poll(s)... Results will be posted shortly.`, flags: 64 } };
+    }
+
+    if (subCommand === "results") {
+      const { data: recentPoll } = await adminClient.from("active_polls").select("*").eq("bot_id", bot.id).eq("channel_id", channelId).eq("ended", true).order("ends_at", { ascending: false }).limit(1);
+      if (!recentPoll?.length) return { type: 4, data: { content: "❌ No ended polls found in this channel.", flags: 64 } };
+      const p = recentPoll[0];
+      const resultsEmbed = buildPollResultsEmbed(p);
+      return { type: 4, data: { embeds: [resultsEmbed] } };
+    }
   }
 
   // ── Leveling Commands ──
