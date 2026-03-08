@@ -1,11 +1,17 @@
 import { motion } from "framer-motion";
-import { Code2, Plus, Search, Trash2, ToggleLeft, ToggleRight, Save, X, Play, ChevronDown, ChevronUp } from "lucide-react";
+import { Code2, Plus, Search, Trash2, ToggleLeft, ToggleRight, Save, X, ChevronDown, ChevronUp } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useBot } from "@/hooks/useBot";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
+interface ScriptOption {
+  name: string;
+  description: string;
+  type: string; // "string" | "integer" | "user" | "channel" | "role" | "boolean"
+}
 
 interface CustomScript {
   id: string;
@@ -20,6 +26,15 @@ interface CustomScript {
   updated_at: string;
 }
 
+const OPTION_TYPES: { value: string; label: string; discord_type: number }[] = [
+  { value: "string", label: "Text", discord_type: 3 },
+  { value: "integer", label: "Number", discord_type: 4 },
+  { value: "user", label: "User", discord_type: 6 },
+  { value: "channel", label: "Channel", discord_type: 7 },
+  { value: "role", label: "Role", discord_type: 8 },
+  { value: "boolean", label: "True/False", discord_type: 5 },
+];
+
 const SCRIPT_TEMPLATE = `// Custom Script — runs when the trigger command is used
 // Available variables:
 //   {user} — mention of the user who ran the command
@@ -30,6 +45,7 @@ const SCRIPT_TEMPLATE = `// Custom Script — runs when the trigger command is u
 //   {server.name} — the server's name
 //   {args} — all arguments after the command
 //   {args.0}, {args.1}, ... — individual arguments
+//   {options.name} — value of the option named "name"
 //
 // Available actions:
 //   reply("message")       — reply to the command
@@ -57,6 +73,7 @@ export default function DashboardCustomCommands() {
   const [description, setDescription] = useState("");
   const [triggerCommand, setTriggerCommand] = useState("");
   const [scriptCode, setScriptCode] = useState("");
+  const [options, setOptions] = useState<ScriptOption[]>([]);
 
   const fetchScripts = async () => {
     if (!selectedBot) return;
@@ -77,6 +94,7 @@ export default function DashboardCustomCommands() {
     setDescription("");
     setTriggerCommand("");
     setScriptCode(SCRIPT_TEMPLATE);
+    setOptions([]);
     setExpandedId(null);
   };
 
@@ -87,7 +105,26 @@ export default function DashboardCustomCommands() {
     setDescription(script.description || "");
     setTriggerCommand(script.trigger_command || "");
     setScriptCode(script.script_code);
+    // Parse options from script_code metadata comment or stored in description JSON
+    const storedOptions = parseStoredOptions(script);
+    setOptions(storedOptions);
     setExpandedId(null);
+  };
+
+  const parseStoredOptions = (script: CustomScript): ScriptOption[] => {
+    // Options are stored as a JSON comment at the top of the script
+    const match = script.script_code.match(/^\/\/ @options (.+)$/m);
+    if (match) {
+      try { return JSON.parse(match[1]); } catch { return []; }
+    }
+    return [];
+  };
+
+  const injectOptionsComment = (code: string, opts: ScriptOption[]): string => {
+    // Remove existing @options line
+    const cleaned = code.replace(/^\/\/ @options .+\n?/m, "");
+    if (opts.length === 0) return cleaned;
+    return `// @options ${JSON.stringify(opts)}\n${cleaned}`;
   };
 
   const cancelEdit = () => {
@@ -95,10 +132,26 @@ export default function DashboardCustomCommands() {
     setIsNew(false);
   };
 
+  const addOption = () => {
+    setOptions([...options, { name: "", description: "", type: "string" }]);
+  };
+
+  const updateOption = (i: number, updates: Partial<ScriptOption>) => {
+    setOptions(options.map((o, idx) => idx === i ? { ...o, ...updates } : o));
+  };
+
+  const removeOption = (i: number) => {
+    setOptions(options.filter((_, idx) => idx !== i));
+  };
+
   const saveScript = async () => {
     if (!selectedBot || !user) return;
     if (!name.trim()) { toast.error("Script name is required"); return; }
     if (!triggerCommand.trim()) { toast.error("Trigger command is required"); return; }
+
+    // Validate options
+    const validOptions = options.filter(o => o.name.trim());
+    const finalCode = injectOptionsComment(scriptCode, validOptions);
 
     if (isNew) {
       const { error } = await supabase.from("custom_scripts").insert({
@@ -107,7 +160,7 @@ export default function DashboardCustomCommands() {
         name: name.trim(),
         description: description.trim() || null,
         trigger_command: triggerCommand.trim().replace(/^\//, ""),
-        script_code: scriptCode,
+        script_code: finalCode,
       });
       if (error) { toast.error(error.message); return; }
       toast.success("Script created!");
@@ -116,7 +169,7 @@ export default function DashboardCustomCommands() {
         name: name.trim(),
         description: description.trim() || null,
         trigger_command: triggerCommand.trim().replace(/^\//, ""),
-        script_code: scriptCode,
+        script_code: finalCode,
       }).eq("id", editing.id);
       if (error) { toast.error(error.message); return; }
       toast.success("Script updated!");
@@ -215,6 +268,53 @@ export default function DashboardCustomCommands() {
                   </div>
                 </div>
 
+                {/* Command Options */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-medium text-muted-foreground">Command Options <span className="text-muted-foreground/60">(all optional)</span></label>
+                    <button onClick={addOption} className="flex items-center gap-1 px-2 py-1 rounded text-xs text-primary hover:bg-primary/10 transition-colors">
+                      <Plus className="w-3 h-3" /> Add Option
+                    </button>
+                  </div>
+                  {options.length > 0 && (
+                    <div className="space-y-2">
+                      {options.map((opt, i) => (
+                        <div key={i} className="flex items-center gap-2 p-2 rounded-md bg-secondary/40 border border-border">
+                          <input
+                            type="text"
+                            value={opt.name}
+                            onChange={(e) => updateOption(i, { name: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "") })}
+                            placeholder="name"
+                            className="w-28 px-2 py-1.5 rounded bg-background border border-input text-xs font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                          />
+                          <input
+                            type="text"
+                            value={opt.description}
+                            onChange={(e) => updateOption(i, { description: e.target.value })}
+                            placeholder="Description"
+                            className="flex-1 px-2 py-1.5 rounded bg-background border border-input text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                          />
+                          <select
+                            value={opt.type}
+                            onChange={(e) => updateOption(i, { type: e.target.value })}
+                            className="px-2 py-1.5 rounded bg-background border border-input text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                          >
+                            {OPTION_TYPES.map((t) => (
+                              <option key={t.value} value={t.value}>{t.label}</option>
+                            ))}
+                          </select>
+                          <button onClick={() => removeOption(i)} className="text-muted-foreground hover:text-destructive transition-colors p-1">
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        Access option values in your script with <code className="font-mono text-primary">{'{options.name}'}</code>
+                      </p>
+                    </div>
+                  )}
+                </div>
+
                 {/* Code Editor */}
                 <div>
                   <label className="text-xs font-medium text-muted-foreground mb-1 block">Script Code</label>
@@ -261,56 +361,62 @@ export default function DashboardCustomCommands() {
                   No custom scripts yet. Click <strong>New Script</strong> to get started!
                 </p>
               )}
-              {filtered.map((script, i) => (
-                <motion.div
-                  key={script.id}
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.03 }}
-                  className="rounded-lg border border-border bg-card hover:border-primary/20 transition-colors"
-                >
-                  <div className="flex items-center justify-between p-4">
-                    <div className="flex items-center gap-4 cursor-pointer flex-1" onClick={() => startEdit(script)}>
-                      <div className="p-2 rounded-md bg-primary/10">
-                        <Code2 className="w-4 h-4 text-primary" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-sm font-medium text-card-foreground">{script.name}</span>
-                          {script.trigger_command && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground font-mono">/{script.trigger_command}</span>
-                          )}
+              {filtered.map((script, i) => {
+                const scriptOpts = parseStoredOptions(script);
+                return (
+                  <motion.div
+                    key={script.id}
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.03 }}
+                    className="rounded-lg border border-border bg-card hover:border-primary/20 transition-colors"
+                  >
+                    <div className="flex items-center justify-between p-4">
+                      <div className="flex items-center gap-4 cursor-pointer flex-1" onClick={() => startEdit(script)}>
+                        <div className="p-2 rounded-md bg-primary/10">
+                          <Code2 className="w-4 h-4 text-primary" />
                         </div>
-                        {script.description && <p className="text-xs text-muted-foreground mt-0.5">{script.description}</p>}
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-sm font-medium text-card-foreground">{script.name}</span>
+                            {script.trigger_command && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground font-mono">/{script.trigger_command}</span>
+                            )}
+                            {scriptOpts.length > 0 && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">{scriptOpts.length} option{scriptOpts.length > 1 ? "s" : ""}</span>
+                            )}
+                          </div>
+                          {script.description && <p className="text-xs text-muted-foreground mt-0.5">{script.description}</p>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => setExpandedId(expandedId === script.id ? null : script.id)}
+                          className="text-muted-foreground hover:text-foreground transition-colors"
+                          title="Preview code"
+                        >
+                          {expandedId === script.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </button>
+                        <button onClick={() => toggleScript(script)} className="text-muted-foreground hover:text-foreground transition-colors">
+                          {script.enabled ? <ToggleRight className="w-6 h-6 text-primary" /> : <ToggleLeft className="w-6 h-6" />}
+                        </button>
+                        <button onClick={() => deleteScript(script.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => setExpandedId(expandedId === script.id ? null : script.id)}
-                        className="text-muted-foreground hover:text-foreground transition-colors"
-                        title="Preview code"
-                      >
-                        {expandedId === script.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                      </button>
-                      <button onClick={() => toggleScript(script)} className="text-muted-foreground hover:text-foreground transition-colors">
-                        {script.enabled ? <ToggleRight className="w-6 h-6 text-primary" /> : <ToggleLeft className="w-6 h-6" />}
-                      </button>
-                      <button onClick={() => deleteScript(script.id)} className="text-muted-foreground hover:text-destructive transition-colors">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
 
-                  {/* Expandable code preview */}
-                  {expandedId === script.id && (
-                    <div className="border-t border-border">
-                      <pre className="p-4 text-xs font-mono text-foreground overflow-x-auto max-h-60 overflow-y-auto leading-relaxed bg-secondary/30">
-                        {script.script_code}
-                      </pre>
-                    </div>
-                  )}
-                </motion.div>
-              ))}
+                    {/* Expandable code preview */}
+                    {expandedId === script.id && (
+                      <div className="border-t border-border">
+                        <pre className="p-4 text-xs font-mono text-foreground overflow-x-auto max-h-60 overflow-y-auto leading-relaxed bg-secondary/30">
+                          {script.script_code}
+                        </pre>
+                      </div>
+                    )}
+                  </motion.div>
+                );
+              })}
             </div>
           )}
         </>
