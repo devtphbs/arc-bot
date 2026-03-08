@@ -237,6 +237,17 @@ export default function CommandBuilder() {
   const [showTestPanel, setShowTestPanel] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
+  // Command options (slash command parameters)
+  interface CommandOption {
+    id: string;
+    name: string;
+    description: string;
+    type: "STRING" | "INTEGER" | "NUMBER" | "BOOLEAN" | "USER" | "CHANNEL" | "ROLE" | "MENTIONABLE";
+    required: boolean;
+    choices?: { name: string; value: string }[];
+  }
+  const [commandOptions, setCommandOptions] = useState<CommandOption[]>([]);
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),

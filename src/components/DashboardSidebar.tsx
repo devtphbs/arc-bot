@@ -46,7 +46,6 @@ const navSections = [
   {
     label: "Management",
     items: [
-      { title: "Events", url: "/dashboard/events", icon: Zap, desc: "Event-triggered actions" },
       { title: "Moderation", url: "/dashboard/moderation", icon: Shield, desc: "Auto-mod & safety tools" },
       { title: "Automations", url: "/dashboard/automations", icon: RefreshCw, desc: "Scheduled & triggered tasks" },
       { title: "Analytics", url: "/dashboard/analytics", icon: BarChart3, desc: "Usage stats & charts" },
