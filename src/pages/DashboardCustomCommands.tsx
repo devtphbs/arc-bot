@@ -301,36 +301,27 @@ export default function DashboardCustomCommands() {
         const trimM = line.match(/trim\(["'`](.*?)["'`]\)/);
         const lengthM = line.match(/length\(["'`](.*?)["'`]\)/);
 
+        const rAll = (s: string, f: string, r: string) => s.split(f).join(r);
+        const resolveV = (txt: string) => { Object.entries(simVars).forEach(([k, v]) => { txt = rAll(txt, k, v); }); return txt; };
+
         if (cutAfterM) {
-          let txt = cutAfterM[1];
-          Object.entries(simVars).forEach(([k, v]) => { txt = txt.replaceAll(k, v); });
+          const txt = resolveV(cutAfterM[1]);
           const idx = txt.indexOf(cutAfterM[2]);
           result = idx >= 0 ? txt.substring(0, idx) : txt;
         } else if (cutBeforeM) {
-          let txt = cutBeforeM[1];
-          Object.entries(simVars).forEach(([k, v]) => { txt = txt.replaceAll(k, v); });
+          const txt = resolveV(cutBeforeM[1]);
           const idx = txt.indexOf(cutBeforeM[2]);
           result = idx >= 0 ? txt.substring(idx + cutBeforeM[2].length) : txt;
         } else if (replaceM) {
-          let txt = replaceM[1];
-          Object.entries(simVars).forEach(([k, v]) => { txt = txt.replaceAll(k, v); });
-          result = txt.replaceAll(replaceM[2], replaceM[3]);
+          result = rAll(resolveV(replaceM[1]), replaceM[2], replaceM[3]);
         } else if (upperM) {
-          let txt = upperM[1];
-          Object.entries(simVars).forEach(([k, v]) => { txt = txt.replaceAll(k, v); });
-          result = txt.toUpperCase();
+          result = resolveV(upperM[1]).toUpperCase();
         } else if (lowerM) {
-          let txt = lowerM[1];
-          Object.entries(simVars).forEach(([k, v]) => { txt = txt.replaceAll(k, v); });
-          result = txt.toLowerCase();
+          result = resolveV(lowerM[1]).toLowerCase();
         } else if (trimM) {
-          let txt = trimM[1];
-          Object.entries(simVars).forEach(([k, v]) => { txt = txt.replaceAll(k, v); });
-          result = txt.trim();
+          result = resolveV(trimM[1]).trim();
         } else if (lengthM) {
-          let txt = lengthM[1];
-          Object.entries(simVars).forEach(([k, v]) => { txt = txt.replaceAll(k, v); });
-          result = String(txt.length);
+          result = String(resolveV(lengthM[1]).length);
         }
 
         if (varName) {
