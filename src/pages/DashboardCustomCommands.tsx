@@ -246,6 +246,82 @@ export default function DashboardCustomCommands() {
     fetchScripts();
   };
 
+  const testScript = async () => {
+    setTestRunning(true);
+    setTestOutput(null);
+    try {
+      // Parse the script to simulate output
+      let code = scriptCode.replace(/^\/\/.*/gm, "").trim();
+      
+      // Simulate variable replacements
+      const simVars: Record<string, string> = {
+        "{user}": "@TestUser",
+        "{user.id}": "123456789",
+        "{user.name}": "TestUser",
+        "{channel}": "#test-channel",
+        "{channel.id}": "987654321",
+        "{server.name}": "Test Server",
+      };
+      // Replace {options.x} with placeholder
+      options.forEach(opt => {
+        if (opt.name) simVars[`{options.${opt.name}}`] = `<${opt.name}>`;
+      });
+
+      // Extract reply() calls
+      const replies: string[] = [];
+      const replyRegex = /reply\(["'`]([\s\S]*?)["'`]\)/g;
+      let m;
+      while ((m = replyRegex.exec(code)) !== null) {
+        let text = m[1];
+        Object.entries(simVars).forEach(([k, v]) => { text = text.replaceAll(k, v); });
+        // Replace scrape results with placeholders
+        text = text.replace(/\{scrape\.\d+\}/g, "(scraped text)");
+        text = text.replace(/\{scrapeImage\.\d+\}/g, "(image url)");
+        text = text.replace(/\{scrapeAll\.\d+\.join\(.+?\)\}/g, "(scraped list)");
+        text = text.replace(/\{scrapeAll\.\d+\.\d+\}/g, "(scraped item)");
+        text = text.replace(/\{scrapeAttr\.\d+\}/g, "(attribute value)");
+        replies.push(text);
+      }
+
+      // Extract embed() calls
+      const embedRegex = /embed\(\s*\{([\s\S]*?)\}\s*\)/g;
+      const embeds: string[] = [];
+      while ((m = embedRegex.exec(code)) !== null) {
+        embeds.push(`[Embed: {${m[1]}}]`);
+      }
+
+      // Extract scrape calls for summary
+      const scrapes: string[] = [];
+      const scrapeCallRegex = /scrape(?:All|Image|Attr)?\(["'`](.+?)["'`]/g;
+      while ((m = scrapeCallRegex.exec(code)) !== null) {
+        scrapes.push(`🌐 Scraping: ${m[1]}`);
+      }
+
+      // Extract other actions
+      const actions: string[] = [];
+      if (/addRole\(/.test(code)) actions.push("➕ Add role");
+      if (/removeRole\(/.test(code)) actions.push("➖ Remove role");
+      if (/send\(/.test(code)) actions.push("📤 Send to channel");
+      if (/wait\(/.test(code)) actions.push("⏱️ Wait/delay");
+
+      const output = [
+        "── Test Output ──",
+        ...scrapes,
+        ...actions,
+        ...replies.map((r, i) => `💬 Reply${replies.length > 1 ? ` #${i+1}` : ""}: ${r}`),
+        ...embeds,
+        replies.length === 0 && embeds.length === 0 ? "⚠️ No reply() or embed() found — bot won't respond" : "",
+      ].filter(Boolean).join("\n");
+
+      setTestOutput(output);
+      toast.success("Test completed!");
+    } catch (err: any) {
+      setTestOutput(`❌ Error: ${err.message}`);
+    } finally {
+      setTestRunning(false);
+    }
+  };
+
   const toggleScript = async (script: CustomScript) => {
     await supabase.from("custom_scripts").update({ enabled: !script.enabled }).eq("id", script.id);
     fetchScripts();
