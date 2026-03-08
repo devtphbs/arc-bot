@@ -213,6 +213,11 @@ export default function CommandBuilder() {
   const editId = searchParams.get("edit");
   const { selectedBot } = useBot();
   const { user } = useAuth();
+  // Capture the bot at mount time so switching bots doesn't change the target
+  const [targetBot, setTargetBot] = useState<typeof selectedBot>(null);
+  useEffect(() => {
+    if (selectedBot && !targetBot) setTargetBot(selectedBot);
+  }, [selectedBot]);
 
   const [type, setType] = useState<CommandType>("slash");
   const [name, setName] = useState("");
