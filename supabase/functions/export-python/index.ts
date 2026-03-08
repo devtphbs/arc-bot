@@ -56,6 +56,13 @@ Deno.serve(async (req) => {
     const statusConfig = (statusModule?.config as any) || {};
     const welcomeModule = modules?.find((m: any) => m.module_name === "welcome");
     const automodModule = modules?.find((m: any) => m.module_name === "automod");
+    const musicModule = modules?.find((m: any) => m.module_name === "music");
+    const musicConfig = (musicModule?.config as any) || {};
+    const autoResponderModule = modules?.find((m: any) => m.module_name === "auto_responder");
+    const autoResponderConfig = (autoResponderModule?.config as any) || {};
+    const giveawayModule = modules?.find((m: any) => m.module_name === "giveaways");
+    const giveawayConfig = (giveawayModule?.config as any) || {};
+    const pollModule = modules?.find((m: any) => m.module_name === "polls");
 
     const slashCommands = (commands || []).filter((c: any) => c.type === "slash");
     const prefixCommands = (commands || []).filter((c: any) => c.type === "prefix");
@@ -259,6 +266,184 @@ async def cmd_leaderboard(interaction: discord.Interaction):
         medal = ["🥇", "🥈", "🥉"][i] if i < 3 else f"#{i+1}"
         embed.add_field(name=f"{medal} <@{uid}>", value=f"Level {data['level']} • {data['xp']} XP", inline=False)
     await interaction.response.send_message(embed=embed)
+
+`;
+    }
+
+    // Auto-responder
+    if (autoResponderModule?.enabled && autoResponderConfig.responses?.length > 0) {
+      script += `# ─── Auto Responder ──────────────────────────────────────────────
+AUTO_RESPONSES = ${JSON.stringify(autoResponderConfig.responses.map((r: any) => ({ trigger: r.trigger, response: r.response, matchType: r.matchType, ignoreCase: r.ignoreCase, deleteOriginal: r.deleteOriginal })))}
+
+@bot.listen("on_message")
+async def auto_respond(message):
+    if message.author.bot:
+        return
+    content = message.content
+    for ar in AUTO_RESPONSES:
+        trigger = ar["trigger"]
+        msg_text = content.lower() if ar.get("ignoreCase") else content
+        trig_text = trigger.lower() if ar.get("ignoreCase") else trigger
+        matched = False
+        if ar.get("matchType") == "exact":
+            matched = msg_text == trig_text
+        elif ar.get("matchType") == "startsWith":
+            matched = msg_text.startswith(trig_text)
+        elif ar.get("matchType") == "regex":
+            import re
+            try:
+                matched = bool(re.search(trigger, content, re.IGNORECASE if ar.get("ignoreCase") else 0))
+            except:
+                pass
+        else:
+            matched = trig_text in msg_text
+        if matched:
+            reply = ar["response"].replace("{user}", message.author.mention).replace("{server}", message.guild.name if message.guild else "DM").replace("{channel}", message.channel.name if hasattr(message.channel, "name") else "DM")
+            await message.channel.send(reply)
+            if ar.get("deleteOriginal"):
+                try:
+                    await message.delete()
+                except:
+                    pass
+            break
+
+`;
+    }
+
+    // Music module
+    if (musicModule?.enabled) {
+      script += `# ─── Music Module ────────────────────────────────────────────────
+# Requires: pip install discord.py[voice] yt-dlp
+import yt_dlp
+
+FFMPEG_OPTIONS = {"options": "-vn"}
+YDL_OPTIONS = {"format": "bestaudio/best", "noplaylist": True, "quiet": True}
+
+music_queues = {}  # guild_id -> list of songs
+
+@bot.tree.command(name="play", description="Play a song from YouTube")
+@app_commands.describe(query="Song name or YouTube URL")
+async def cmd_play(interaction: discord.Interaction, query: str):
+    if not interaction.user.voice:
+        await interaction.response.send_message("❌ Join a voice channel first!", ephemeral=True)
+        return
+    await interaction.response.defer()
+    vc = interaction.guild.voice_client
+    if not vc:
+        vc = await interaction.user.voice.channel.connect()
+    with yt_dlp.YoutubeDL(YDL_OPTIONS) as ydl:
+        if not query.startswith("http"):
+            query = f"ytsearch:{query}"
+        info = ydl.extract_info(query, download=False)
+        if "entries" in info:
+            info = info["entries"][0]
+        url = info["url"]
+        title = info.get("title", "Unknown")
+    gid = str(interaction.guild_id)
+    if gid not in music_queues:
+        music_queues[gid] = []
+    if vc.is_playing():
+        music_queues[gid].append({"url": url, "title": title})
+        await interaction.followup.send(f"📋 Added to queue: **{title}**")
+    else:
+        vc.play(discord.FFmpegPCMAudio(url, **FFMPEG_OPTIONS), after=lambda e: asyncio.run_coroutine_threadsafe(play_next(interaction.guild), bot.loop))
+        vc.source = discord.PCMVolumeTransformer(vc.source, volume=${(musicConfig.defaultVolume || 50) / 100})
+        await interaction.followup.send(f"🎶 Now playing: **{title}**")
+
+async def play_next(guild):
+    gid = str(guild.id)
+    vc = guild.voice_client
+    if not vc or gid not in music_queues or not music_queues[gid]:
+        return
+    song = music_queues[gid].pop(0)
+    vc.play(discord.FFmpegPCMAudio(song["url"], **FFMPEG_OPTIONS), after=lambda e: asyncio.run_coroutine_threadsafe(play_next(guild), bot.loop))
+
+@bot.tree.command(name="skip", description="Skip the current song")
+async def cmd_skip(interaction: discord.Interaction):
+    vc = interaction.guild.voice_client
+    if vc and vc.is_playing():
+        vc.stop()
+        await interaction.response.send_message("⏭️ Skipped!")
+    else:
+        await interaction.response.send_message("Nothing is playing.", ephemeral=True)
+
+@bot.tree.command(name="stop", description="Stop music and disconnect")
+async def cmd_stop(interaction: discord.Interaction):
+    vc = interaction.guild.voice_client
+    if vc:
+        music_queues.pop(str(interaction.guild_id), None)
+        await vc.disconnect()
+        await interaction.response.send_message("⏹️ Stopped and disconnected.")
+    else:
+        await interaction.response.send_message("Not connected.", ephemeral=True)
+
+@bot.tree.command(name="queue", description="View the music queue")
+async def cmd_queue(interaction: discord.Interaction):
+    gid = str(interaction.guild_id)
+    q = music_queues.get(gid, [])
+    if not q:
+        await interaction.response.send_message("Queue is empty.", ephemeral=True)
+        return
+    desc = "\\n".join([f"{i+1}. {s['title']}" for i, s in enumerate(q[:10])])
+    embed = discord.Embed(title="🎵 Queue", description=desc, color=discord.Color.blue())
+    if len(q) > 10:
+        embed.set_footer(text=f"and {len(q) - 10} more...")
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="pause", description="Pause the current song")
+async def cmd_pause(interaction: discord.Interaction):
+    vc = interaction.guild.voice_client
+    if vc and vc.is_playing():
+        vc.pause()
+        await interaction.response.send_message("⏸️ Paused.")
+    else:
+        await interaction.response.send_message("Nothing to pause.", ephemeral=True)
+
+@bot.tree.command(name="resume", description="Resume the paused song")
+async def cmd_resume(interaction: discord.Interaction):
+    vc = interaction.guild.voice_client
+    if vc and vc.is_paused():
+        vc.resume()
+        await interaction.response.send_message("▶️ Resumed.")
+    else:
+        await interaction.response.send_message("Nothing to resume.", ephemeral=True)
+
+@bot.tree.command(name="volume", description="Set the volume")
+@app_commands.describe(level="Volume level (1-100)")
+async def cmd_volume(interaction: discord.Interaction, level: int):
+    vc = interaction.guild.voice_client
+    if vc and vc.source:
+        vc.source.volume = level / 100
+        await interaction.response.send_message(f"🔊 Volume set to {level}%")
+    else:
+        await interaction.response.send_message("Nothing is playing.", ephemeral=True)
+
+`;
+    }
+
+    // Giveaway
+    if (giveawayModule?.enabled) {
+      script += `# ─── Giveaways ───────────────────────────────────────────────────
+import random as _random
+
+@bot.tree.command(name="giveaway", description="Start a giveaway")
+@app_commands.describe(prize="What are you giving away?", duration="Duration in seconds", winners="Number of winners")
+async def cmd_giveaway(interaction: discord.Interaction, prize: str, duration: int = 86400, winners: int = 1):
+    embed = discord.Embed(title="🎉 GIVEAWAY 🎉", description=f"Prize: **{prize}**\\nReact with 🎉 to enter!\\nWinners: {winners}\\nEnds in {duration}s", color=discord.Color.gold())
+    await interaction.response.send_message(embed=embed)
+    msg = await interaction.original_response()
+    await msg.add_reaction("🎉")
+    await asyncio.sleep(duration)
+    msg = await interaction.channel.fetch_message(msg.id)
+    reaction = discord.utils.get(msg.reactions, emoji="🎉")
+    if reaction:
+        users = [u async for u in reaction.users() if not u.bot]
+        if users:
+            chosen = _random.sample(users, min(winners, len(users)))
+            winners_text = ", ".join([w.mention for w in chosen])
+            await interaction.channel.send(f"🎉 Congratulations {winners_text}! You won **{prize}**!")
+        else:
+            await interaction.channel.send("No one entered the giveaway. 😢")
 
 `;
     }
