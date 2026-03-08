@@ -85,6 +85,14 @@ Deno.serve(async (req) => {
         }
 
         if (eventType === "MESSAGE_CREATE" && !payload.author?.bot) {
+          // Track message event
+          void adminClient.from("server_events").insert({ bot_id, guild_id: payload.guild_id || "dm", event_type: "message", event_data: { channel_id: payload.channel_id, user_id: payload.author?.id } });
+
+          // Auto-moderation
+          if (modules.automod || modules.wordfilter || modules.antispam) {
+            void handleAutoMod(payload, token, adminClient, bot_id, modules);
+          }
+
           if (levelingConfig?.enabled) {
             void handleLeveling(payload, adminClient, bot_id, user.id, token, levelingConfig);
           }
@@ -93,12 +101,14 @@ Deno.serve(async (req) => {
           }
         }
 
-        if (eventType === "GUILD_MEMBER_ADD" && modules.welcome) {
-          void handleWelcome(payload, token, modules.welcome, true);
+        if (eventType === "GUILD_MEMBER_ADD") {
+          void adminClient.from("server_events").insert({ bot_id, guild_id: payload.guild_id || "", event_type: "member_join", event_data: { user_id: payload.user?.id } });
+          if (modules.welcome) void handleWelcome(payload, token, modules.welcome, true);
         }
 
-        if (eventType === "GUILD_MEMBER_REMOVE" && modules.leave) {
-          void handleWelcome(payload, token, modules.leave, false);
+        if (eventType === "GUILD_MEMBER_REMOVE") {
+          void adminClient.from("server_events").insert({ bot_id, guild_id: payload.guild_id || "", event_type: "member_leave", event_data: { user_id: payload.user?.id } });
+          if (modules.leave) void handleWelcome(payload, token, modules.leave, false);
         }
 
         if (eventType === "MESSAGE_REACTION_ADD" && modules.reaction_roles) {
@@ -491,6 +501,100 @@ async function handleReactionRole(data: any, token: string, config: any, action:
         headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
       });
       break;
+    }
+  }
+}
+
+// ─── Auto-Moderation Handler ────────────────────────────────────
+async function handleAutoMod(message: any, token: string, adminClient: any, botDbId: string, modules: Record<string, any>) {
+  const content = message.content || "";
+  const channelId = message.channel_id;
+  const messageId = message.id;
+  const guildId = message.guild_id;
+  const userId = message.author?.id;
+  if (!guildId || !userId) return;
+
+  const deleteMsg = async () => {
+    await fetch(`https://discord.com/api/v10/channels/${channelId}/messages/${messageId}`, {
+      method: "DELETE", headers: { Authorization: `Bot ${token}` },
+    });
+  };
+
+  const sendWarning = async (reason: string, logChannelId?: string) => {
+    await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+      method: "POST", headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ content: `⚠️ <@${userId}>, ${reason}` }),
+    });
+    if (logChannelId) {
+      await fetch(`https://discord.com/api/v10/channels/${logChannelId}/messages`, {
+        method: "POST", headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ content: `🛡️ AutoMod: ${reason} | User: <@${userId}> | Channel: <#${channelId}>` }),
+      });
+    }
+  };
+
+  // Word Filter
+  if (modules.wordfilter) {
+    const cfg = modules.wordfilter;
+    const blockedRaw = (cfg.blocked_words || "").split("\n").map((w: string) => w.trim()).filter(Boolean);
+    const exemptRoles = (cfg.exempt_roles || "").split(",").map((r: string) => r.trim()).filter(Boolean);
+    const memberRoles: string[] = message.member?.roles || [];
+    if (!exemptRoles.some((r: string) => memberRoles.includes(r)) && blockedRaw.length > 0) {
+      const lowerContent = content.toLowerCase();
+      let blocked = false;
+      for (const word of blockedRaw) {
+        if (cfg.use_regex) {
+          try { if (new RegExp(word, "i").test(content)) { blocked = true; break; } } catch {}
+        } else if (cfg.wildcard_match) {
+          if (lowerContent.includes(word.toLowerCase())) { blocked = true; break; }
+        } else {
+          if (lowerContent === word.toLowerCase()) { blocked = true; break; }
+        }
+      }
+      if (blocked) {
+        await deleteMsg();
+        await sendWarning("your message was removed for containing a blocked word.");
+        return;
+      }
+    }
+  }
+
+  // Auto-Mod (links, invites, caps, mentions)
+  if (modules.automod) {
+    const cfg = modules.automod;
+    const logChannel = cfg.log_channel || "";
+
+    if (cfg.block_links && /https?:\/\/\S+/.test(content)) {
+      await deleteMsg();
+      await sendWarning("links are not allowed in this server.", logChannel);
+      return;
+    }
+
+    if (cfg.block_invites && /discord\.(gg|com\/invite)\/\S+/i.test(content)) {
+      await deleteMsg();
+      await sendWarning("Discord invite links are not allowed.", logChannel);
+      return;
+    }
+
+    if (cfg.block_caps) {
+      const threshold = cfg.caps_threshold || 70;
+      const letters = content.replace(/[^a-zA-Z]/g, "");
+      if (letters.length > 5) {
+        const capsRatio = (letters.replace(/[^A-Z]/g, "").length / letters.length) * 100;
+        if (capsRatio > threshold) {
+          await deleteMsg();
+          await sendWarning("excessive caps are not allowed.", logChannel);
+          return;
+        }
+      }
+    }
+
+    const maxMentions = cfg.max_mentions || 5;
+    const mentionCount = (content.match(/<@!?\d+>/g) || []).length;
+    if (mentionCount > maxMentions) {
+      await deleteMsg();
+      await sendWarning(`too many mentions (max ${maxMentions}).`, logChannel);
+      return;
     }
   }
 }

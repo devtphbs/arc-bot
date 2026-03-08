@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Terminal, Zap, Shield, RefreshCw, ScrollText, Settings, Bot, ChevronLeft, Plus, Circle,
   UserPlus, Heart, BarChart3, Trophy, Ticket, Palette, Medal, FileCode, Music, MessageSquare, Gift, Vote,
-  Variable, Bell, Activity, DatabaseBackup, ClipboardList, Code2,
+  Variable, Bell, Activity, DatabaseBackup, ClipboardList, Code2, CalendarClock, TrendingUp,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -38,6 +38,7 @@ const navSections = [
       { title: "Auto Responder", url: "/dashboard/auto-responder", icon: MessageSquare, desc: "Trigger-based auto replies" },
       { title: "Tickets", url: "/dashboard/tickets", icon: Ticket, desc: "Support ticket system" },
       { title: "Social Alerts", url: "/dashboard/social-alerts", icon: Bell, desc: "Twitch/YT/Twitter notifications" },
+      { title: "Scheduled Messages", url: "/dashboard/scheduled-messages", icon: CalendarClock, desc: "Timed & recurring messages" },
       { title: "Variables", url: "/dashboard/variables", icon: Variable, desc: "Custom dynamic variables" },
       { title: "Custom Scripts", url: "/dashboard/custom-scripts", icon: Code2, desc: "Advanced scripting (coming soon)" },
     ],
@@ -49,6 +50,7 @@ const navSections = [
       { title: "Moderation", url: "/dashboard/moderation", icon: Shield, desc: "Auto-mod & safety tools" },
       { title: "Automations", url: "/dashboard/automations", icon: RefreshCw, desc: "Scheduled & triggered tasks" },
       { title: "Analytics", url: "/dashboard/analytics", icon: BarChart3, desc: "Usage stats & charts" },
+      { title: "Server Analytics", url: "/dashboard/server-analytics", icon: TrendingUp, desc: "Member & message trends" },
       { title: "Logs", url: "/dashboard/logs", icon: ScrollText, desc: "Real-time event stream" },
       { title: "Audit Log", url: "/dashboard/audit-log", icon: ClipboardList, desc: "Full action history" },
     ],
