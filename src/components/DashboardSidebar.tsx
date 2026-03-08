@@ -40,7 +40,7 @@ const navSections = [
       { title: "Social Alerts", url: "/dashboard/social-alerts", icon: Bell, desc: "Twitch/YT/Twitter notifications" },
       { title: "Scheduled Messages", url: "/dashboard/scheduled-messages", icon: CalendarClock, desc: "Timed & recurring messages" },
       { title: "Variables", url: "/dashboard/variables", icon: Variable, desc: "Custom dynamic variables" },
-      { title: "Custom Scripts", url: "/dashboard/custom-scripts", icon: Code2, desc: "Advanced scripting (coming soon)" },
+      { title: "Custom Scripts", url: "/dashboard/custom-scripts", icon: Code2, desc: "Advanced scripting" },
     ],
   },
   {
@@ -65,7 +65,11 @@ const navSections = [
   },
 ];
 
-export function DashboardSidebar() {
+interface DashboardSidebarProps {
+  onNavigate?: () => void;
+}
+
+export function DashboardSidebar({ onNavigate }: DashboardSidebarProps) {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
@@ -77,7 +81,10 @@ export function DashboardSidebar() {
 
   return (
     <>
-      <aside className={cn("flex flex-col h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300 shrink-0", collapsed ? "w-16" : "w-64")}>
+      <aside className={cn(
+        "flex flex-col h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300 shrink-0",
+        collapsed ? "w-16" : "w-64"
+      )}>
         <div className="flex items-center justify-between h-14 px-4 border-b border-sidebar-border">
           {!collapsed && (
             <div className="flex items-center gap-2">
@@ -92,7 +99,7 @@ export function DashboardSidebar() {
               <Bot className="w-4 h-4 text-primary-foreground" />
             </div>
           )}
-          <button onClick={() => setCollapsed(!collapsed)} className={cn("p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors", collapsed && "mx-auto mt-2")}>
+          <button onClick={() => setCollapsed(!collapsed)} className={cn("p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors hidden lg:block", collapsed && "mx-auto mt-2")}>
             <ChevronLeft className={cn("w-4 h-4 transition-transform", collapsed && "rotate-180")} />
           </button>
         </div>
@@ -101,13 +108,13 @@ export function DashboardSidebar() {
           <div className="px-3 py-3 border-b border-sidebar-border">
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2 px-1">Bots</p>
             {bots.map((bot) => (
-              <div key={bot.id} onClick={() => selectBot(bot)} className={cn("flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-sidebar-accent cursor-pointer transition-colors", selectedBot?.id === bot.id && "bg-sidebar-accent")}>
-                <Circle className={cn("w-2 h-2 fill-current", bot.status === "online" ? "text-success" : "text-muted-foreground")} />
+              <div key={bot.id} onClick={() => { selectBot(bot); onNavigate?.(); }} className={cn("flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-sidebar-accent cursor-pointer transition-colors", selectedBot?.id === bot.id && "bg-sidebar-accent")}>
+                <Circle className={cn("w-2 h-2 fill-current shrink-0", bot.status === "online" ? "text-success" : "text-muted-foreground")} />
                 <span className="text-sm text-sidebar-accent-foreground truncate">{bot.bot_name}</span>
               </div>
             ))}
             <button onClick={() => setConnectOpen(true)} className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-sidebar-accent cursor-pointer transition-colors w-full text-muted-foreground hover:text-foreground mt-1">
-              <Plus className="w-3 h-3" /><span className="text-sm">Add Bot</span>
+              <Plus className="w-3 h-3 shrink-0" /><span className="text-sm">Add Bot</span>
             </button>
           </div>
         )}
@@ -118,7 +125,18 @@ export function DashboardSidebar() {
               {!collapsed && <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1 px-1 mt-2">{section.label}</p>}
               <div className="space-y-0.5">
                 {section.items.map((item) => (
-                  <NavLink key={item.title} to={item.url} end={item.url === "/dashboard"} className={cn("flex items-center gap-3 px-2.5 py-1.5 rounded-md text-sm transition-all text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent group", collapsed && "justify-center px-2")} activeClassName="bg-sidebar-accent text-primary font-medium glow-primary" title={collapsed ? `${item.title}: ${item.desc}` : undefined}>
+                  <NavLink
+                    key={item.title}
+                    to={item.url}
+                    end={item.url === "/dashboard"}
+                    className={cn(
+                      "flex items-center gap-3 px-2.5 py-1.5 rounded-md text-sm transition-all text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent group",
+                      collapsed && "justify-center px-2"
+                    )}
+                    activeClassName="bg-sidebar-accent text-primary font-medium glow-primary"
+                    title={collapsed ? `${item.title}: ${item.desc}` : undefined}
+                    onClick={onNavigate}
+                  >
                     <item.icon className="w-4 h-4 shrink-0" />
                     {!collapsed && <span>{item.title}</span>}
                   </NavLink>
@@ -132,9 +150,9 @@ export function DashboardSidebar() {
           <div className="px-4 py-3 border-t border-sidebar-border">
             <div className="flex items-center gap-2">
               {avatar ? (
-                <img src={avatar} alt="" className="w-7 h-7 rounded-full" />
+                <img src={avatar} alt="" className="w-7 h-7 rounded-full shrink-0" />
               ) : (
-                <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center text-xs font-medium text-secondary-foreground">
+                <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center text-xs font-medium text-secondary-foreground shrink-0">
                   {displayName[0]?.toUpperCase()}
                 </div>
               )}
