@@ -145,7 +145,150 @@ Deno.serve(async (req) => {
   } catch (err: any) {
     return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
-});
+
+interface GatewayConnectOptions {
+  gatewayUrl: string;
+  token: string;
+  presenceStatus: string;
+  activityType: number;
+  statusText: string;
+  onDispatch: (eventType: string, payload: any) => void;
+}
+
+interface GatewayConnectResult {
+  success: boolean;
+  error?: string;
+  close_code?: number;
+  session_id?: string;
+  guild_count?: number;
+  user?: any;
+  intents?: number;
+}
+
+const INTENT_CANDIDATES = [33281, 513, 1];
+
+async function connectGatewayWithFallback(options: GatewayConnectOptions): Promise<GatewayConnectResult> {
+  let lastError: GatewayConnectResult = { success: false, error: "Gateway connection failed" };
+
+  for (const intents of INTENT_CANDIDATES) {
+    const attempt = await connectGatewaySession(options, intents);
+    if (attempt.success) return attempt;
+
+    lastError = attempt;
+    if (attempt.close_code === 4014) continue;
+    break;
+  }
+
+  return lastError;
+}
+
+function connectGatewaySession(options: GatewayConnectOptions, intents: number): Promise<GatewayConnectResult> {
+  return new Promise((resolve) => {
+    const ws = new WebSocket(options.gatewayUrl);
+    let settled = false;
+    let sequence: number | null = null;
+    let heartbeatInterval: number | null = null;
+    let activeWindowTimer: number | null = null;
+    let readyPayload: any = null;
+
+    const timeout = setTimeout(() => {
+      settle({ success: false, error: "Gateway connection timed out" });
+    }, 22000) as unknown as number;
+
+    const settle = (result: GatewayConnectResult) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      if (activeWindowTimer) clearTimeout(activeWindowTimer);
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
+      try { ws.close(); } catch (_) {}
+      resolve({ ...result, intents });
+    };
+
+    ws.onmessage = (event) => {
+      let packet: any;
+      try {
+        packet = JSON.parse(event.data);
+      } catch {
+        return;
+      }
+
+      const { op, d, s, t } = packet;
+      if (typeof s === "number") sequence = s;
+
+      if (op === 10) {
+        heartbeatInterval = setInterval(() => {
+          try {
+            ws.send(JSON.stringify({ op: 1, d: sequence }));
+          } catch (_) {}
+        }, d.heartbeat_interval) as unknown as number;
+
+        const activities = options.statusText ? [{ name: options.statusText, type: options.activityType }] : [];
+        ws.send(JSON.stringify({
+          op: 2,
+          d: {
+            token: options.token,
+            intents,
+            properties: { os: "linux", browser: "ArcBot", device: "ArcBot" },
+            presence: { activities, status: options.presenceStatus, since: null, afk: false },
+          },
+        }));
+        return;
+      }
+
+      if (op === 0 && t === "READY") {
+        readyPayload = d;
+        activeWindowTimer = setTimeout(() => {
+          settle({
+            success: true,
+            session_id: d.session_id,
+            guild_count: d.guilds?.length || 0,
+            user: d.user,
+          });
+        }, 10000) as unknown as number;
+        return;
+      }
+
+      if (op === 0 && t) {
+        options.onDispatch(t, d);
+        return;
+      }
+
+      if (op === 9) {
+        settle({ success: false, error: "Invalid session", close_code: 4006 });
+      }
+    };
+
+    ws.onerror = () => {
+      settle({ success: false, error: "WebSocket error" });
+    };
+
+    ws.onclose = (event: CloseEvent) => {
+      if (settled) return;
+
+      if (event.code === 4014) {
+        settle({ success: false, error: "Disallowed intents", close_code: event.code });
+        return;
+      }
+
+      if (readyPayload) {
+        settle({
+          success: true,
+          session_id: readyPayload.session_id,
+          guild_count: readyPayload.guilds?.length || 0,
+          user: readyPayload.user,
+        });
+        return;
+      }
+
+      settle({
+        success: false,
+        error: `Gateway closed (code ${event.code})${event.reason ? `: ${event.reason}` : ""}`,
+        close_code: event.code,
+      });
+    };
+  });
+}
 
 // ─── Interaction Handler ────────────────────────────────────────
 async function handleInteraction(interaction: any, token: string, adminClient: any, botDbId: string, userId: string, commands: any[]) {
