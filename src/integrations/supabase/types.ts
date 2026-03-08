@@ -235,6 +235,7 @@ export type Database = {
           bot_name: string
           created_at: string
           guild_count: number | null
+          guild_id: string | null
           id: string
           prefix: string | null
           status: string
@@ -248,6 +249,7 @@ export type Database = {
           bot_name: string
           created_at?: string
           guild_count?: number | null
+          guild_id?: string | null
           id?: string
           prefix?: string | null
           status?: string
@@ -261,6 +263,7 @@ export type Database = {
           bot_name?: string
           created_at?: string
           guild_count?: number | null
+          guild_id?: string | null
           id?: string
           prefix?: string | null
           status?: string
