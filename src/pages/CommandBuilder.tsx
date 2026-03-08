@@ -269,6 +269,9 @@ export default function CommandBuilder() {
         if (Array.isArray((resp as any).variables)) {
           setVariables((resp as any).variables.map((v: any) => ({ id: v.id || createId(), key: v.key || "", fallback: v.fallback || "", required: Boolean(v.required) })));
         }
+        if (Array.isArray((resp as any).commandOptions)) {
+          setCommandOptions((resp as any).commandOptions);
+        }
       }
     });
   }, [editId, targetBot?.id]);
@@ -299,7 +302,7 @@ export default function CommandBuilder() {
   const handleSave = async () => {
     if (!name.trim() || !targetBot || !user) return;
     setSaving(true);
-    const builderConfig = { mode: "blocks_v1", textResponses: [], blocks, variables, eventHooks: [], timedEvents: [] };
+    const builderConfig = { mode: "blocks_v1", textResponses: [], blocks, variables, commandOptions, eventHooks: [], timedEvents: [] };
     const payload = {
       bot_id: targetBot.id, user_id: user.id, name: name.trim(), description: description.trim() || null, type, permissions,
       responses: builderConfig as unknown as Json,
