@@ -424,39 +424,41 @@ async function handleAutoResponder(message: any, token: string, config: any) {
 
 // ─── Welcome / Leave Handler ────────────────────────────────────
 async function handleWelcome(data: any, token: string, config: any, isJoin: boolean) {
-  const channelName = config.channel || "general";
+  const channelId = config.channelId || config.channel;
   const messageText = (config.message || (isJoin ? "Welcome {user}!" : "Goodbye {user}!"))
     .replace(/\{user\}/g, `<@${data.user?.id}>`)
     .replace(/\{mention\}/g, `<@${data.user?.id}>`)
     .replace(/\{server\}/g, data.guild_id || "")
     .replace(/\{memberCount\}/g, "");
 
-  // We'd need the channel ID; for now use system channel if available
-  // The config stores channel names, but Discord API needs IDs
-  // This is a best-effort implementation
-  if (data.guild_id) {
+  let targetChannelId = channelId;
+
+  // If no channel ID configured, try to find a text channel
+  if (!targetChannelId && data.guild_id) {
     const channelsRes = await fetch(`https://discord.com/api/v10/guilds/${data.guild_id}/channels`, {
       headers: { Authorization: `Bot ${token}` },
     });
     if (channelsRes.ok) {
       const channels = await channelsRes.json();
-      const target = channels.find((c: any) => c.name === channelName && c.type === 0) || channels.find((c: any) => c.type === 0);
-      if (target) {
-        const body: any = { content: messageText };
-        if (config.embedEnabled && isJoin) {
-          body.embeds = [{
-            title: config.embedTitle || undefined,
-            description: (config.embedDescription || "").replace(/\{user\}/g, `<@${data.user?.id}>`).replace(/\{server\}/g, data.guild_id),
-            color: parseInt((config.embedColor || "#FFD700").replace("#", ""), 16),
-          }];
-        }
-        await fetch(`https://discord.com/api/v10/channels/${target.id}/messages`, {
-          method: "POST",
-          headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-      }
+      const fallback = channels.find((c: any) => c.type === 0);
+      if (fallback) targetChannelId = fallback.id;
     }
+  }
+
+  if (targetChannelId) {
+    const body: any = { content: messageText };
+    if (config.embedEnabled && isJoin) {
+      body.embeds = [{
+        title: config.embedTitle || undefined,
+        description: (config.embedDescription || "").replace(/\{user\}/g, `<@${data.user?.id}>`).replace(/\{server\}/g, data.guild_id),
+        color: parseInt((config.embedColor || "#FFD700").replace("#", ""), 16),
+      }];
+    }
+    await fetch(`https://discord.com/api/v10/channels/${targetChannelId}/messages`, {
+      method: "POST",
+      headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
   }
 }
 
