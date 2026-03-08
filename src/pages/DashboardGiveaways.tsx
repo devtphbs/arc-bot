@@ -55,6 +55,7 @@ export default function DashboardGiveaways() {
   const { selectedBot } = useBot();
   const { user } = useAuth();
   const [giveaways, setGiveaways] = useState<Giveaway[]>([]);
+  const [allowedRoles, setAllowedRoles] = useState<string[]>([]);
   const [enabled, setEnabled] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -62,8 +63,9 @@ export default function DashboardGiveaways() {
     if (!selectedBot) return;
     supabase.from("bot_modules").select("*").eq("bot_id", selectedBot.id).eq("module_name", "giveaways").maybeSingle().then(({ data }) => {
       if (data?.config) {
-        const c = data.config as { giveaways?: Giveaway[] };
+        const c = data.config as { giveaways?: Giveaway[]; allowedRoles?: string[] };
         setGiveaways(c.giveaways || []);
+        setAllowedRoles(c.allowedRoles || []);
         setEnabled(data.enabled);
       }
     });
