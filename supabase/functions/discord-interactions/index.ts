@@ -125,10 +125,23 @@ Deno.serve(async (req) => {
         if (requiredRoles.length > 0 && !requiredRoles.some((r) => memberRoles.includes(r))) {
           return respond({ type: 4, data: { content: "❌ You don't have the required role to use this command.", flags: 64 } });
         }
-        const responses = (cmd.responses as any[]) || [];
-        const content = responses.length > 0 ? (responses[0]?.content || "Command executed!") : "Command executed!";
         adminClient.from("commands").update({ uses: (cmd.uses || 0) + 1 }).eq("id", cmd.id);
         adminClient.from("bot_logs").insert({ bot_id: bot.id, user_id: bot.user_id, level: "info", source: "command", message: `/${commandName} used by ${interaction.member?.user?.username || "unknown"}` });
+
+        const responses = cmd.responses as any;
+
+        // Detect blocks_v1 format from command builder
+        if (responses && typeof responses === "object" && !Array.isArray(responses) && responses.mode === "blocks_v1" && Array.isArray(responses.blocks)) {
+          const result = await executeCommandBlocks(responses.blocks, responses.variables || [], interaction, token, bot, adminClient);
+          const responseData: any = { type: 4, data: { content: result.content || "✅ Command executed." } };
+          if (result.embeds && result.embeds.length > 0) responseData.data.embeds = result.embeds;
+          if (cmd.ephemeral) responseData.data.flags = 64;
+          return respond(responseData);
+        }
+
+        // Legacy array format
+        const respArray = Array.isArray(responses) ? responses : [];
+        const content = respArray.length > 0 ? (respArray[0]?.content || "Command executed!") : "Command executed!";
         const responseData: any = { type: 4, data: { content } };
         if (cmd.embed) responseData.data.embeds = [cmd.embed];
         if (cmd.ephemeral) responseData.data.flags = 64;

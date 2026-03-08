@@ -24,7 +24,7 @@ import { CSS } from "@dnd-kit/utilities";
 
 type Command = Tables<"commands">;
 type CommandType = "slash" | "prefix" | "context";
-type BlockType = "reply" | "embed" | "condition" | "wait" | "run_event" | "log_error" | "dm_user" | "add_role" | "remove_role" | "kick_user" | "ban_user" | "create_thread" | "send_to_channel" | "toggle_role" | "set_nickname" | "purge_messages" | "loop" | "random_choice" | "check_role" | "check_permission" | "check_channel" | "cooldown_check";
+type BlockType = "reply" | "embed" | "condition" | "wait" | "run_event" | "log_error" | "dm_user" | "add_role" | "remove_role" | "kick_user" | "ban_user" | "create_thread" | "send_to_channel" | "toggle_role" | "set_nickname" | "purge_messages" | "loop" | "random_choice" | "check_role" | "check_permission" | "check_channel" | "cooldown_check" | "member_count" | "channel_count" | "server_info" | "user_info" | "math";
 
 interface CommandBlock { id: string; type: BlockType; label: string; value: string; variableKey: string; }
 interface CommandVariable { id: string; key: string; fallback: string; required: boolean; }
