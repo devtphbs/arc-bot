@@ -51,6 +51,24 @@ const SCRIPT_TEMPLATE = `// Custom Script — runs when the trigger command is u
 //   wait(seconds)                   — pause before continuing
 //   embed({ title, description, color, fields }) — send an embed
 //
+// ── String Utilities ──
+//   cutAfter("text", "delimiter")         — text before the delimiter
+//   cutBefore("text", "delimiter")        — text after the delimiter
+//   replace("text", "find", "replacement") — replace all occurrences
+//   upper("text")                         — UPPERCASE
+//   lower("text")                         — lowercase
+//   trim("text")                          — remove leading/trailing spaces
+//   length("text")                        — character count
+//
+//   Use with variables:
+//     cutAfter("{scrape.0}", " - ")  → gets text before " - "
+//     upper("{user.name}")           → uppercased username
+//     replace("{scrape.0}", "$", "") → remove dollar signs
+//
+//   Store results in variables with => varName:
+//     cutAfter("{scrape.0}", " - ") => price
+//     reply("Price is: {price}")
+//
 // ── Web Scraping ──
 //   scrape("url", "selector")       — get text from a CSS selector
 //   scrapeAll("url", "selector")    — get ALL matching texts
@@ -266,6 +284,60 @@ export default function DashboardCustomCommands() {
       options.forEach(opt => {
         if (opt.name) simVars[`{options.${opt.name}}`] = `<${opt.name}>`;
       });
+
+      // Process string utilities and store results
+      const stringVars: Record<string, string> = {};
+      const stringUtilLines = code.split("\n").filter(l => /^(cutAfter|cutBefore|replace|upper|lower|trim|length)\(/.test(l.trim()));
+      for (const line of stringUtilLines) {
+        const storageMatch = line.match(/=>\s*(\w+)\s*$/);
+        const varName = storageMatch?.[1];
+        let result = "(simulated)";
+
+        const cutAfterM = line.match(/cutAfter\(["'`](.*?)["'`]\s*,\s*["'`](.*?)["'`]\)/);
+        const cutBeforeM = line.match(/cutBefore\(["'`](.*?)["'`]\s*,\s*["'`](.*?)["'`]\)/);
+        const replaceM = line.match(/replace\(["'`](.*?)["'`]\s*,\s*["'`](.*?)["'`]\s*,\s*["'`](.*?)["'`]\)/);
+        const upperM = line.match(/upper\(["'`](.*?)["'`]\)/);
+        const lowerM = line.match(/lower\(["'`](.*?)["'`]\)/);
+        const trimM = line.match(/trim\(["'`](.*?)["'`]\)/);
+        const lengthM = line.match(/length\(["'`](.*?)["'`]\)/);
+
+        if (cutAfterM) {
+          let txt = cutAfterM[1];
+          Object.entries(simVars).forEach(([k, v]) => { txt = txt.replaceAll(k, v); });
+          const idx = txt.indexOf(cutAfterM[2]);
+          result = idx >= 0 ? txt.substring(0, idx) : txt;
+        } else if (cutBeforeM) {
+          let txt = cutBeforeM[1];
+          Object.entries(simVars).forEach(([k, v]) => { txt = txt.replaceAll(k, v); });
+          const idx = txt.indexOf(cutBeforeM[2]);
+          result = idx >= 0 ? txt.substring(idx + cutBeforeM[2].length) : txt;
+        } else if (replaceM) {
+          let txt = replaceM[1];
+          Object.entries(simVars).forEach(([k, v]) => { txt = txt.replaceAll(k, v); });
+          result = txt.replaceAll(replaceM[2], replaceM[3]);
+        } else if (upperM) {
+          let txt = upperM[1];
+          Object.entries(simVars).forEach(([k, v]) => { txt = txt.replaceAll(k, v); });
+          result = txt.toUpperCase();
+        } else if (lowerM) {
+          let txt = lowerM[1];
+          Object.entries(simVars).forEach(([k, v]) => { txt = txt.replaceAll(k, v); });
+          result = txt.toLowerCase();
+        } else if (trimM) {
+          let txt = trimM[1];
+          Object.entries(simVars).forEach(([k, v]) => { txt = txt.replaceAll(k, v); });
+          result = txt.trim();
+        } else if (lengthM) {
+          let txt = lengthM[1];
+          Object.entries(simVars).forEach(([k, v]) => { txt = txt.replaceAll(k, v); });
+          result = String(txt.length);
+        }
+
+        if (varName) {
+          stringVars[varName] = result;
+          simVars[`{${varName}}`] = result;
+        }
+      }
 
       // Extract reply() calls
       const replies: string[] = [];
