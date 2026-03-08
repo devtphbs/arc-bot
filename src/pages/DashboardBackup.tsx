@@ -126,7 +126,7 @@ export default function DashboardBackup() {
         supabase.from("ticket_config").delete().eq("bot_id", selectedBot.id),
       ]);
 
-      const inserts: Promise<any>[] = [];
+      const inserts = [];
 
       if (backupJson.data.commands?.length) {
         inserts.push(supabase.from("commands").insert(mapRecords(backupJson.data.commands)));
