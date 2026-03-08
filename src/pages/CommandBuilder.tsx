@@ -5,7 +5,8 @@ import {
   ArrowLeft, Save, Loader2, Play, Search, GripVertical, Trash2, Plus, Settings, BookOpen,
   MessageSquare, Code, AlertTriangle, Clock, Zap, AlertCircle, Palette, MousePointerClick,
   ChevronDown, X, UserMinus, UserPlus, Hash, AtSign, ShieldCheck, Volume2, Repeat, Send,
-  Eye, EyeOff, GitBranch, Timer, Database, Globe, Lock, Users, BarChart3, Info, Calculator
+  Eye, EyeOff, GitBranch, Timer, Database, Globe, Lock, Users, BarChart3, Info, Calculator,
+  Menu, PanelLeftClose
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,6 +22,7 @@ import {
   arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 type Command = Tables<"commands">;
 type CommandType = "slash" | "prefix" | "context";
@@ -191,22 +193,22 @@ function CanvasBlock({ block, onUpdate, onDelete }: { block: CommandBlock; onUpd
   };
 
   return (
-    <div ref={setNodeRef} style={style} className={cn("rounded-lg border border-border bg-card p-4 border-l-4 relative group", s.border)}>
-      <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-muted-foreground/30 border-2 border-card" />
-      <div className="flex items-start gap-3">
+    <div ref={setNodeRef} style={style} className={cn("rounded-lg border border-border bg-card p-3 sm:p-4 border-l-4 relative group", s.border)}>
+      <div className="hidden sm:block absolute -top-2 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-muted-foreground/30 border-2 border-card" />
+      <div className="flex items-start gap-2 sm:gap-3">
         <button {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground mt-1 shrink-0">
           <GripVertical className="w-4 h-4" />
         </button>
-        <div className={cn("p-2 rounded-md shrink-0", s.bg)}>
-          <Icon className={cn("w-4 h-4", s.text)} />
+        <div className={cn("p-1.5 sm:p-2 rounded-md shrink-0", s.bg)}>
+          <Icon className={cn("w-3.5 h-3.5 sm:w-4 sm:h-4", s.text)} />
         </div>
         <div className="flex-1 min-w-0 space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <input type="text" value={block.label} onChange={(e) => onUpdate(block.id, { label: e.target.value })} className="text-sm font-medium text-card-foreground bg-transparent border-none outline-none p-0 w-auto" />
-              <span className={cn("text-[10px] px-1.5 py-0.5 rounded uppercase tracking-wider font-medium", s.bg, s.text)}>{block.type.replace(/_/g, " ")}</span>
+          <div className="flex items-center justify-between gap-1">
+            <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+              <input type="text" value={block.label} onChange={(e) => onUpdate(block.id, { label: e.target.value })} className="text-xs sm:text-sm font-medium text-card-foreground bg-transparent border-none outline-none p-0 w-auto min-w-0" />
+              <span className={cn("text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0.5 rounded uppercase tracking-wider font-medium shrink-0 hidden sm:inline", s.bg, s.text)}>{block.type.replace(/_/g, " ")}</span>
             </div>
-            <button onClick={() => onDelete(block.id)} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all">
+            <button onClick={() => onDelete(block.id)} className="sm:opacity-0 sm:group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all shrink-0">
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -214,15 +216,15 @@ function CanvasBlock({ block, onUpdate, onDelete }: { block: CommandBlock; onUpd
             value={block.value}
             onChange={(e) => onUpdate(block.id, { value: e.target.value })}
             placeholder={placeholders[block.type] || "Enter value..."}
-            rows={block.type === "random_choice" || block.type === "embed" ? 4 : 2}
-            className="w-full px-3 py-2 rounded-md bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none font-mono"
+            rows={block.type === "random_choice" || block.type === "embed" ? 3 : 2}
+            className="w-full px-2 sm:px-3 py-1.5 sm:py-2 rounded-md bg-background border border-border text-xs sm:text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none font-mono"
           />
           <div className="flex items-center gap-2">
-            <input type="text" value={block.variableKey} onChange={(e) => onUpdate(block.id, { variableKey: e.target.value })} placeholder="Save output as variable (optional)" className="flex-1 px-2 py-1 rounded-md bg-background border border-border text-[11px] text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+            <input type="text" value={block.variableKey} onChange={(e) => onUpdate(block.id, { variableKey: e.target.value })} placeholder="Save as variable (optional)" className="flex-1 px-2 py-1 rounded-md bg-background border border-border text-[10px] sm:text-[11px] text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
           </div>
         </div>
       </div>
-      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-primary/50 border-2 border-card" />
+      <div className="hidden sm:block absolute -bottom-2 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-primary/50 border-2 border-card" />
     </div>
   );
 }
@@ -233,7 +235,7 @@ export default function CommandBuilder() {
   const editId = searchParams.get("edit");
   const { selectedBot, bots } = useBot();
   const { user } = useAuth();
-  // Capture the bot at mount time so switching bots doesn't change the target
+  const isMobile = useIsMobile();
   const [targetBot, setTargetBot] = useState<typeof selectedBot>(null);
   useEffect(() => {
     if (selectedBot && !targetBot) setTargetBot(selectedBot);
@@ -256,8 +258,8 @@ export default function CommandBuilder() {
   const [showSettings, setShowSettings] = useState(false);
   const [showTestPanel, setShowTestPanel] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [mobileSidebar, setMobileSidebar] = useState(false);
 
-  // Command options (slash command parameters)
   interface CommandOption {
     id: string;
     name: string;
@@ -309,6 +311,7 @@ export default function CommandBuilder() {
 
   const addBlock = (type: BlockType, label: string) => {
     setBlocks((p) => [...p, { id: createId(), type, label, value: "", variableKey: "" }]);
+    if (isMobile) setMobileSidebar(false);
   };
 
   const updateBlock = useCallback((id: string, u: Partial<CommandBlock>) => {
@@ -351,6 +354,7 @@ export default function CommandBuilder() {
     setTestResults(null);
     setTestLogs([]);
     setShowTestPanel(true);
+    if (isMobile) setMobileSidebar(false);
     try {
       const { data, error } = await supabase.functions.invoke("execute-blocks", {
         body: { blocks, variables, bot_id: targetBot?.id, dry_run: true, context: { user: "TestUser#1234", server: "TestServer", channel: "general", mention: "@TestUser" } },
@@ -385,16 +389,170 @@ export default function CommandBuilder() {
     })).filter((cat) => cat.items.length > 0);
   }, [blockSearch, sidebarTab]);
 
+  // Sidebar content (shared between desktop and mobile)
+  const sidebarContent = (
+    <>
+      <div className="p-3 border-b border-border">
+        <h2 className="text-sm font-semibold text-card-foreground">Blocks</h2>
+        <p className="text-[10px] text-muted-foreground mt-0.5">Click to add blocks to your command flow</p>
+      </div>
+
+      <div className="flex border-b border-border">
+        {(["options", "actions", "conditions"] as const).map((t) => (
+          <button key={t} onClick={() => setSidebarTab(t)} className={cn("flex-1 py-2 text-xs font-medium transition-colors capitalize border-b-2", sidebarTab === t ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>{t}</button>
+        ))}
+      </div>
+
+      <div className="p-2">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+          <input type="text" value={blockSearch} onChange={(e) => setBlockSearch(e.target.value)} placeholder="Search blocks..." className="w-full pl-8 pr-3 py-1.5 rounded-md bg-background border border-border text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-2 pb-3">
+        {sidebarTab === "options" && (
+          <div className="space-y-3 p-1">
+            <div>
+              <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">Type</label>
+              <div className="flex gap-1">
+                {(["slash", "prefix", "context"] as CommandType[]).map((t) => (
+                  <button key={t} onClick={() => setType(t)} className={cn("flex-1 px-2 py-1.5 rounded-md text-[11px] capitalize transition-colors", type === t ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-accent")}>{t}</button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">Name</label>
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="/command" className="w-full px-2.5 py-1.5 rounded-md bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring font-mono" />
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">Description</label>
+              <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What does this command do?" rows={2} className="w-full px-2.5 py-1.5 rounded-md bg-background border border-border text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none" />
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">Cooldown (s)</label>
+              <input type="number" value={cooldown} onChange={(e) => setCooldown(Number(e.target.value))} min={0} className="w-full px-2.5 py-1.5 rounded-md bg-background border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+            </div>
+            <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+              <input type="checkbox" checked={ephemeral} onChange={(e) => setEphemeral(e.target.checked)} className="accent-primary" />
+              Ephemeral (only visible to user)
+            </label>
+            <div>
+              <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">Variables</label>
+              {variables.map((v) => (
+                <div key={v.id} className="flex gap-1 mb-1">
+                  <input type="text" value={v.key} onChange={(e) => setVariables((p) => p.map((i) => i.id === v.id ? { ...i, key: e.target.value } : i))} placeholder="key" className="flex-1 px-2 py-1 rounded-md bg-background border border-border text-[11px] text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-ring" />
+                  <input type="text" value={v.fallback} onChange={(e) => setVariables((p) => p.map((i) => i.id === v.id ? { ...i, fallback: e.target.value } : i))} placeholder="default" className="flex-1 px-2 py-1 rounded-md bg-background border border-border text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+                  <button onClick={() => setVariables((p) => p.filter((i) => i.id !== v.id))} className="text-muted-foreground hover:text-destructive"><Trash2 className="w-3 h-3" /></button>
+                </div>
+              ))}
+              <button onClick={() => setVariables((p) => [...p, { id: createId(), key: "", fallback: "", required: false }])} className="text-[10px] text-primary hover:text-primary/80 flex items-center gap-1 mt-1"><Plus className="w-3 h-3" /> Add Variable</button>
+            </div>
+
+            {type === "slash" && (
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">Command Options</label>
+                <p className="text-[10px] text-muted-foreground mb-2">Add parameters users fill in when using the command</p>
+                {commandOptions.map((opt) => (
+                  <div key={opt.id} className="mb-2 p-2 rounded-md bg-background border border-border space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <select value={opt.type} onChange={(e) => setCommandOptions((p) => p.map((o) => o.id === opt.id ? { ...o, type: e.target.value as any } : o))} className="px-1.5 py-1 rounded bg-card border border-border text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-ring">
+                        {["STRING", "INTEGER", "NUMBER", "BOOLEAN", "USER", "CHANNEL", "ROLE", "MENTIONABLE"].map((t) => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                      <div className="flex items-center gap-1">
+                        <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer">
+                          <input type="checkbox" checked={opt.required} onChange={(e) => setCommandOptions((p) => p.map((o) => o.id === opt.id ? { ...o, required: e.target.checked } : o))} className="accent-primary w-3 h-3" />
+                          Req
+                        </label>
+                        <button onClick={() => setCommandOptions((p) => p.filter((o) => o.id !== opt.id))} className="text-muted-foreground hover:text-destructive"><Trash2 className="w-3 h-3" /></button>
+                      </div>
+                    </div>
+                    <input type="text" value={opt.name} onChange={(e) => setCommandOptions((p) => p.map((o) => o.id === opt.id ? { ...o, name: e.target.value.toLowerCase().replace(/\s/g, "_") } : o))} placeholder="option_name" className="w-full px-2 py-1 rounded bg-card border border-border text-[11px] text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-ring" />
+                    <input type="text" value={opt.description} onChange={(e) => setCommandOptions((p) => p.map((o) => o.id === opt.id ? { ...o, description: e.target.value } : o))} placeholder="Description" className="w-full px-2 py-1 rounded bg-card border border-border text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+                    {(opt.type === "STRING" || opt.type === "INTEGER" || opt.type === "NUMBER") && (
+                      <div>
+                        <p className="text-[10px] text-muted-foreground mb-1">Choices (optional, one per line: name=value)</p>
+                        <textarea
+                          value={(opt.choices || []).map((c) => `${c.name}=${c.value}`).join("\n")}
+                          onChange={(e) => {
+                            const choices = e.target.value.split("\n").filter(Boolean).map((l) => {
+                              const [name, ...rest] = l.split("=");
+                              return { name: name.trim(), value: rest.join("=").trim() || name.trim() };
+                            });
+                            setCommandOptions((p) => p.map((o) => o.id === opt.id ? { ...o, choices: choices.length > 0 ? choices : undefined } : o));
+                          }}
+                          rows={2}
+                          placeholder="Small=5&#10;Medium=10"
+                          className="w-full px-2 py-1 rounded bg-card border border-border text-[10px] text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-ring resize-none"
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))}
+                <button onClick={() => setCommandOptions((p) => [...p, { id: createId(), name: "", description: "", type: "STRING", required: false }])} className="text-[10px] text-primary hover:text-primary/80 flex items-center gap-1 mt-1"><Plus className="w-3 h-3" /> Add Option</button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {(sidebarTab === "actions" || sidebarTab === "conditions") && (
+          <div className="space-y-3">
+            {filteredCatalog.map((cat) => (
+              <div key={cat.category}>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5 font-semibold px-1">{cat.category}</p>
+                <div className="space-y-0.5">
+                  {cat.items.map((item) => {
+                    const Icon = item.icon;
+                    const bs = BLOCK_STYLES[item.type] || BLOCK_STYLES.reply;
+                    return (
+                      <button key={item.type + item.label} onClick={() => addBlock(item.type, item.label)} className="w-full flex items-center gap-2.5 p-2 rounded-md hover:bg-secondary/80 transition-colors text-left group">
+                        <div className={cn("p-1.5 rounded-md shrink-0", bs.bg)}>
+                          <Icon className={cn("w-3.5 h-3.5", bs.text)} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-card-foreground">{item.label}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">{item.description}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+
+            {sidebarTab === "actions" && (
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5 font-semibold px-1">Templates</p>
+                <div className="space-y-0.5">
+                  {BLOCK_TEMPLATES.map((t) => (
+                    <button key={t.name} onClick={() => { t.blocks.forEach((b) => setBlocks((p) => [...p, { ...b, id: createId() }])); toast.success(`Added "${t.name}"`); if (isMobile) setMobileSidebar(false); }} className="w-full text-left px-2 py-1.5 rounded-md hover:bg-secondary/80 transition-colors text-[11px] text-card-foreground">
+                      {t.name} <span className="text-muted-foreground">· {t.blocks.length} blocks</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </>
+  );
+
   return (
     <div className="flex flex-col h-screen bg-background">
       {/* Top Bar */}
-      <div className="h-12 border-b border-border bg-card flex items-center justify-between px-4 shrink-0">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate("/dashboard/commands")} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
+      <div className="h-12 border-b border-border bg-card flex items-center justify-between px-2 sm:px-4 shrink-0 gap-1">
+        <div className="flex items-center gap-1 sm:gap-3 min-w-0">
+          <button onClick={() => navigate("/dashboard/commands")} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors shrink-0">
             <ArrowLeft className="w-4 h-4" />
           </button>
-          <span className="text-sm font-medium text-card-foreground">{editId ? "Edit Command" : "New Command"}</span>
-          {bots.length > 1 ? (
+          {isMobile && (
+            <button onClick={() => setMobileSidebar(true)} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors shrink-0">
+              <Menu className="w-4 h-4" />
+            </button>
+          )}
+          <span className="text-xs sm:text-sm font-medium text-card-foreground truncate">{editId ? "Edit" : "New"} Command</span>
+          {!isMobile && bots.length > 1 ? (
             <select
               value={targetBot?.id || ""}
               onChange={(e) => { const b = bots.find((b) => b.id === e.target.value); if (b) setTargetBot(b); }}
@@ -402,199 +560,93 @@ export default function CommandBuilder() {
             >
               {bots.map((b) => <option key={b.id} value={b.id}>{b.bot_name}</option>)}
             </select>
-          ) : targetBot && (
+          ) : !isMobile && targetBot && (
             <span className="text-[10px] px-2 py-0.5 rounded bg-primary/10 text-primary font-medium">Saving to: {targetBot.bot_name}</span>
           )}
-          <div className="flex items-center gap-1 ml-2">
-            <button onClick={() => setShowSettings(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
-              <Settings className="w-3.5 h-3.5" /> Settings
-            </button>
-            <button onClick={() => setShowTestPanel(!showTestPanel)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
-              <Play className="w-3.5 h-3.5" /> Test
-            </button>
-          </div>
+          {!isMobile && (
+            <div className="flex items-center gap-1 ml-2">
+              <button onClick={() => setShowSettings(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
+                <Settings className="w-3.5 h-3.5" /> Settings
+              </button>
+              <button onClick={() => setShowTestPanel(!showTestPanel)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
+                <Play className="w-3.5 h-3.5" /> Test
+              </button>
+            </div>
+          )}
         </div>
-        <div className="flex items-center gap-3">
-          {lastSaved && <span className="text-[10px] text-muted-foreground">Saved {lastSaved.toLocaleTimeString()}</span>}
-          <button onClick={handleSave} disabled={saving || !name.trim()} className="flex items-center gap-2 px-4 py-1.5 rounded-md bg-gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity glow-primary disabled:opacity-50">
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save
+        <div className="flex items-center gap-1 sm:gap-3 shrink-0">
+          {isMobile && (
+            <>
+              <button onClick={() => setShowSettings(true)} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
+                <Settings className="w-4 h-4" />
+              </button>
+              <button onClick={() => { setShowTestPanel(!showTestPanel); setMobileSidebar(false); }} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
+                <Play className="w-4 h-4" />
+              </button>
+            </>
+          )}
+          {!isMobile && lastSaved && <span className="text-[10px] text-muted-foreground">Saved {lastSaved.toLocaleTimeString()}</span>}
+          <button onClick={handleSave} disabled={saving || !name.trim()} className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 rounded-md bg-gradient-primary text-primary-foreground text-xs sm:text-sm font-medium hover:opacity-90 transition-opacity glow-primary disabled:opacity-50">
+            {saving ? <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" /> : <Save className="w-3.5 h-3.5 sm:w-4 sm:h-4" />} Save
           </button>
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left Sidebar */}
-        <div className="w-72 border-r border-border bg-card flex flex-col shrink-0">
-          <div className="p-3 border-b border-border">
-            <h2 className="text-sm font-semibold text-card-foreground">Blocks</h2>
-            <p className="text-[10px] text-muted-foreground mt-0.5">Click to add blocks to your command flow</p>
-          </div>
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Mobile sidebar overlay */}
+        {isMobile && mobileSidebar && (
+          <div className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm" onClick={() => setMobileSidebar(false)} />
+        )}
 
-          <div className="flex border-b border-border">
-            {(["options", "actions", "conditions"] as const).map((t) => (
-              <button key={t} onClick={() => setSidebarTab(t)} className={cn("flex-1 py-2 text-xs font-medium transition-colors capitalize border-b-2", sidebarTab === t ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>{t}</button>
-            ))}
-          </div>
-
-          <div className="p-2">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-              <input type="text" value={blockSearch} onChange={(e) => setBlockSearch(e.target.value)} placeholder="Search blocks..." className="w-full pl-8 pr-3 py-1.5 rounded-md bg-background border border-border text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+        {/* Left Sidebar - desktop always visible, mobile as overlay */}
+        <div className={cn(
+          "bg-card flex flex-col shrink-0 border-r border-border",
+          isMobile
+            ? "fixed inset-y-0 left-0 z-50 w-72 transition-transform duration-300" + (mobileSidebar ? " translate-x-0" : " -translate-x-full")
+            : "w-72"
+        )}>
+          {isMobile && (
+            <div className="flex items-center justify-between px-3 pt-3">
+              <span className="text-xs font-semibold text-card-foreground">Block Sidebar</span>
+              <button onClick={() => setMobileSidebar(false)} className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary">
+                <X className="w-4 h-4" />
+              </button>
             </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto px-2 pb-3">
-            {sidebarTab === "options" && (
-              <div className="space-y-3 p-1">
-                <div>
-                  <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">Type</label>
-                  <div className="flex gap-1">
-                    {(["slash", "prefix", "context"] as CommandType[]).map((t) => (
-                      <button key={t} onClick={() => setType(t)} className={cn("flex-1 px-2 py-1.5 rounded-md text-[11px] capitalize transition-colors", type === t ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-accent")}>{t}</button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">Name</label>
-                  <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="/command" className="w-full px-2.5 py-1.5 rounded-md bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring font-mono" />
-                </div>
-                <div>
-                  <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">Description</label>
-                  <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What does this command do?" rows={2} className="w-full px-2.5 py-1.5 rounded-md bg-background border border-border text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none" />
-                </div>
-                <div>
-                  <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">Cooldown (s)</label>
-                  <input type="number" value={cooldown} onChange={(e) => setCooldown(Number(e.target.value))} min={0} className="w-full px-2.5 py-1.5 rounded-md bg-background border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
-                </div>
-                <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
-                  <input type="checkbox" checked={ephemeral} onChange={(e) => setEphemeral(e.target.checked)} className="accent-primary" />
-                  Ephemeral (only visible to user)
-                </label>
-                <div>
-                  <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">Variables</label>
-                  {variables.map((v) => (
-                    <div key={v.id} className="flex gap-1 mb-1">
-                      <input type="text" value={v.key} onChange={(e) => setVariables((p) => p.map((i) => i.id === v.id ? { ...i, key: e.target.value } : i))} placeholder="key" className="flex-1 px-2 py-1 rounded-md bg-background border border-border text-[11px] text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-ring" />
-                      <input type="text" value={v.fallback} onChange={(e) => setVariables((p) => p.map((i) => i.id === v.id ? { ...i, fallback: e.target.value } : i))} placeholder="default" className="flex-1 px-2 py-1 rounded-md bg-background border border-border text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
-                      <button onClick={() => setVariables((p) => p.filter((i) => i.id !== v.id))} className="text-muted-foreground hover:text-destructive"><Trash2 className="w-3 h-3" /></button>
-                    </div>
-                  ))}
-                  <button onClick={() => setVariables((p) => [...p, { id: createId(), key: "", fallback: "", required: false }])} className="text-[10px] text-primary hover:text-primary/80 flex items-center gap-1 mt-1"><Plus className="w-3 h-3" /> Add Variable</button>
-                </div>
-
-                {/* Command Options (slash command parameters) */}
-                {type === "slash" && (
-                  <div>
-                    <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">Command Options</label>
-                    <p className="text-[10px] text-muted-foreground mb-2">Add parameters users fill in when using the command (e.g. amount for /purge)</p>
-                    {commandOptions.map((opt) => (
-                      <div key={opt.id} className="mb-2 p-2 rounded-md bg-background border border-border space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <select value={opt.type} onChange={(e) => setCommandOptions((p) => p.map((o) => o.id === opt.id ? { ...o, type: e.target.value as any } : o))} className="px-1.5 py-1 rounded bg-card border border-border text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-ring">
-                            {["STRING", "INTEGER", "NUMBER", "BOOLEAN", "USER", "CHANNEL", "ROLE", "MENTIONABLE"].map((t) => <option key={t} value={t}>{t}</option>)}
-                          </select>
-                          <div className="flex items-center gap-1">
-                            <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer">
-                              <input type="checkbox" checked={opt.required} onChange={(e) => setCommandOptions((p) => p.map((o) => o.id === opt.id ? { ...o, required: e.target.checked } : o))} className="accent-primary w-3 h-3" />
-                              Required
-                            </label>
-                            <button onClick={() => setCommandOptions((p) => p.filter((o) => o.id !== opt.id))} className="text-muted-foreground hover:text-destructive"><Trash2 className="w-3 h-3" /></button>
-                          </div>
-                        </div>
-                        <input type="text" value={opt.name} onChange={(e) => setCommandOptions((p) => p.map((o) => o.id === opt.id ? { ...o, name: e.target.value.toLowerCase().replace(/\s/g, "_") } : o))} placeholder="option_name" className="w-full px-2 py-1 rounded bg-card border border-border text-[11px] text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-ring" />
-                        <input type="text" value={opt.description} onChange={(e) => setCommandOptions((p) => p.map((o) => o.id === opt.id ? { ...o, description: e.target.value } : o))} placeholder="Description" className="w-full px-2 py-1 rounded bg-card border border-border text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
-                        {(opt.type === "STRING" || opt.type === "INTEGER" || opt.type === "NUMBER") && (
-                          <div>
-                            <p className="text-[10px] text-muted-foreground mb-1">Choices (optional, one per line: name=value)</p>
-                            <textarea
-                              value={(opt.choices || []).map((c) => `${c.name}=${c.value}`).join("\n")}
-                              onChange={(e) => {
-                                const choices = e.target.value.split("\n").filter(Boolean).map((l) => {
-                                  const [name, ...rest] = l.split("=");
-                                  return { name: name.trim(), value: rest.join("=").trim() || name.trim() };
-                                });
-                                setCommandOptions((p) => p.map((o) => o.id === opt.id ? { ...o, choices: choices.length > 0 ? choices : undefined } : o));
-                              }}
-                              rows={2}
-                              placeholder="Small=5&#10;Medium=10&#10;Large=25"
-                              className="w-full px-2 py-1 rounded bg-card border border-border text-[10px] text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-ring resize-none"
-                            />
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                    <button onClick={() => setCommandOptions((p) => [...p, { id: createId(), name: "", description: "", type: "STRING", required: false }])} className="text-[10px] text-primary hover:text-primary/80 flex items-center gap-1 mt-1"><Plus className="w-3 h-3" /> Add Option</button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {(sidebarTab === "actions" || sidebarTab === "conditions") && (
-              <div className="space-y-3">
-                {filteredCatalog.map((cat) => (
-                  <div key={cat.category}>
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5 font-semibold px-1">{cat.category}</p>
-                    <div className="space-y-0.5">
-                      {cat.items.map((item) => {
-                        const Icon = item.icon;
-                        const bs = BLOCK_STYLES[item.type] || BLOCK_STYLES.reply;
-                        return (
-                          <button key={item.type + item.label} onClick={() => addBlock(item.type, item.label)} className="w-full flex items-center gap-2.5 p-2 rounded-md hover:bg-secondary/80 transition-colors text-left group">
-                            <div className={cn("p-1.5 rounded-md shrink-0", bs.bg)}>
-                              <Icon className={cn("w-3.5 h-3.5", bs.text)} />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-xs font-medium text-card-foreground">{item.label}</p>
-                              <p className="text-[10px] text-muted-foreground truncate">{item.description}</p>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-
-                {sidebarTab === "actions" && (
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5 font-semibold px-1">Templates</p>
-                    <div className="space-y-0.5">
-                      {BLOCK_TEMPLATES.map((t) => (
-                        <button key={t.name} onClick={() => { t.blocks.forEach((b) => setBlocks((p) => [...p, { ...b, id: createId() }])); toast.success(`Added "${t.name}"`); }} className="w-full text-left px-2 py-1.5 rounded-md hover:bg-secondary/80 transition-colors text-[11px] text-card-foreground">
-                          {t.name} <span className="text-muted-foreground">· {t.blocks.length} blocks</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          )}
+          {sidebarContent}
         </div>
 
         {/* Canvas */}
         <div className="flex-1 overflow-auto bg-background relative">
-          <div className="min-h-full p-8">
+          <div className="min-h-full p-4 sm:p-8">
             <div className="flex justify-center mb-4">
-              <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-primary/30 bg-primary/5">
-                <div className="w-6 h-6 rounded bg-gradient-primary flex items-center justify-center">
-                  <span className="text-primary-foreground text-xs font-bold">{type === "slash" ? "/" : type === "prefix" ? "!" : "⋮"}</span>
+              <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg border border-primary/30 bg-primary/5">
+                <div className="w-5 h-5 sm:w-6 sm:h-6 rounded bg-gradient-primary flex items-center justify-center">
+                  <span className="text-primary-foreground text-[10px] sm:text-xs font-bold">{type === "slash" ? "/" : type === "prefix" ? "!" : "⋮"}</span>
                 </div>
-                <div>
-                  <span className="text-sm font-medium text-card-foreground">{name || "command"}</span>
-                  {description && <p className="text-[10px] text-muted-foreground">{description}</p>}
+                <div className="min-w-0">
+                  <span className="text-xs sm:text-sm font-medium text-card-foreground">{name || "command"}</span>
+                  {description && <p className="text-[9px] sm:text-[10px] text-muted-foreground truncate">{description}</p>}
                 </div>
               </div>
             </div>
 
-            {blocks.length > 0 && <div className="w-0.5 h-6 bg-muted-foreground/20 mx-auto" />}
+            {blocks.length > 0 && <div className="w-0.5 h-4 sm:h-6 bg-muted-foreground/20 mx-auto" />}
 
             {blocks.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-center">
-                <div className="w-16 h-16 rounded-full bg-secondary/50 flex items-center justify-center mb-4">
-                  <MousePointerClick className="w-6 h-6 text-muted-foreground/50" />
+              <div className="flex flex-col items-center justify-center py-12 sm:py-20 text-center px-4">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-secondary/50 flex items-center justify-center mb-4">
+                  <MousePointerClick className="w-5 h-5 sm:w-6 sm:h-6 text-muted-foreground/50" />
                 </div>
-                <p className="text-sm text-muted-foreground">Click blocks from the sidebar to build your command flow.</p>
-                <p className="text-xs text-muted-foreground mt-1">Or use a <span className="text-primary">template</span> to get started quickly.</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  {isMobile ? "Tap the menu icon to add blocks." : "Click blocks from the sidebar to build your command flow."}
+                </p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">Or use a <span className="text-primary">template</span> to get started quickly.</p>
+                {isMobile && (
+                  <button onClick={() => setMobileSidebar(true)} className="mt-4 flex items-center gap-2 px-4 py-2 rounded-md bg-primary/10 text-primary text-sm font-medium">
+                    <Plus className="w-4 h-4" /> Add Blocks
+                  </button>
+                )}
               </div>
             ) : (
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -603,7 +655,7 @@ export default function CommandBuilder() {
                     {blocks.map((block, i) => (
                       <div key={block.id}>
                         <CanvasBlock block={block} onUpdate={updateBlock} onDelete={deleteBlock} />
-                        {i < blocks.length - 1 && <div className="w-0.5 h-4 bg-muted-foreground/20 mx-auto" />}
+                        {i < blocks.length - 1 && <div className="w-0.5 h-3 sm:h-4 bg-muted-foreground/20 mx-auto" />}
                       </div>
                     ))}
                   </div>
@@ -612,14 +664,17 @@ export default function CommandBuilder() {
             )}
           </div>
 
-          <button onClick={runTest} disabled={testing || blocks.length === 0} className="fixed bottom-6 right-6 flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity glow-primary disabled:opacity-50 shadow-lg z-10">
+          <button onClick={runTest} disabled={testing || blocks.length === 0} className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg bg-gradient-primary text-primary-foreground text-xs sm:text-sm font-medium hover:opacity-90 transition-opacity glow-primary disabled:opacity-50 shadow-lg z-10">
             {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />} Test Run
           </button>
         </div>
 
         {/* Test Panel */}
         {showTestPanel && (
-          <div className="w-72 border-l border-border bg-card flex flex-col shrink-0">
+          <div className={cn(
+            "border-l border-border bg-card flex flex-col shrink-0",
+            isMobile ? "fixed inset-y-0 right-0 z-50 w-72" : "w-72"
+          )}>
             <div className="p-3 border-b border-border flex items-center justify-between">
               <h3 className="text-sm font-semibold text-card-foreground">Test Output</h3>
               <button onClick={() => setShowTestPanel(false)} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
@@ -642,9 +697,9 @@ export default function CommandBuilder() {
 
       {/* Settings Modal */}
       {showSettings && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setShowSettings(false)} />
-          <div className="relative w-full max-w-md mx-4 rounded-xl border border-border bg-card p-6 shadow-2xl">
+          <div className="relative w-full max-w-md rounded-xl border border-border bg-card p-4 sm:p-6 shadow-2xl max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-card-foreground">Command Settings</h3>
               <button onClick={() => setShowSettings(false)} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
@@ -652,7 +707,7 @@ export default function CommandBuilder() {
             <div className="space-y-4">
               <div>
                 <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Required Role IDs</label>
-                <p className="text-[10px] text-muted-foreground mb-2">Paste Discord Role IDs (comma-separated). Only members with at least one of these roles can use this command. Leave empty for everyone.</p>
+                <p className="text-[10px] text-muted-foreground mb-2">Paste Discord Role IDs (comma-separated). Only members with at least one of these roles can use this command.</p>
                 <input
                   type="text"
                   value={permissions.filter(p => /^\d+$/.test(p)).join(", ")}
@@ -660,7 +715,7 @@ export default function CommandBuilder() {
                     const ids = e.target.value.split(",").map(s => s.trim()).filter(Boolean);
                     setPermissions(ids);
                   }}
-                  placeholder="e.g. 123456789012345678, 987654321098765432"
+                  placeholder="e.g. 123456789012345678"
                   className="w-full px-3 py-2 rounded-md bg-background border border-border text-sm text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 />
                 {permissions.length > 0 && (
@@ -676,7 +731,6 @@ export default function CommandBuilder() {
               </div>
               <div>
                 <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">Discord Permissions (optional)</label>
-                <p className="text-[10px] text-muted-foreground mb-2">Additionally require these Discord permissions.</p>
                 <div className="flex flex-wrap gap-1.5">
                   {["ADMINISTRATOR", "MANAGE_GUILD", "MANAGE_ROLES", "KICK_MEMBERS", "BAN_MEMBERS", "MANAGE_MESSAGES", "MANAGE_CHANNELS", "MODERATE_MEMBERS"].map((p) => (
                     <button key={p} onClick={() => setPermissions((prev) => prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p])} className={cn("px-2 py-1 rounded text-[10px] font-mono transition-colors", permissions.includes(p) ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground")}>{p}</button>

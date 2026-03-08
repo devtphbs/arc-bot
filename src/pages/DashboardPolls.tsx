@@ -100,13 +100,13 @@ export default function DashboardPolls() {
   const emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
 
   return (
-    <div className="p-6 lg:p-8 max-w-3xl">
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center justify-between">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-3xl">
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
-            <Vote className="w-6 h-6 text-primary" /> Polls
+          <h1 className="text-xl sm:text-2xl font-semibold text-foreground flex items-center gap-2">
+            <Vote className="w-5 h-5 sm:w-6 sm:h-6 text-primary" /> Polls
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">Create polls and surveys for your server with button voting</p>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">Create polls and surveys for your server with button voting</p>
         </div>
         <div className="flex items-center gap-3">
           <button onClick={() => setEnabled(!enabled)} className={cn("w-12 h-6 rounded-full transition-colors relative", enabled ? "bg-primary" : "bg-secondary")}>
@@ -169,7 +169,7 @@ export default function DashboardPolls() {
               </div>
 
               {/* Duration */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block flex items-center gap-1"><Clock className="w-3 h-3" /> Duration</label>
                   <input type="text" value={poll.duration} onChange={(e) => updatePoll(poll.id, { duration: e.target.value })} placeholder="1d, 30m, 1mo" className="w-full px-3 py-2 rounded-md bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />

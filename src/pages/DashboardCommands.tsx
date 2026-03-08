@@ -43,13 +43,13 @@ export default function DashboardCommands() {
   };
 
   return (
-    <div className="p-6 lg:p-8 max-w-6xl">
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center justify-between">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl">
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Commands</h1>
-          <p className="text-sm text-muted-foreground mt-1">Create and manage your bot commands</p>
+          <h1 className="text-xl sm:text-2xl font-semibold text-foreground">Commands</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">Create and manage your bot commands</p>
         </div>
-        <button onClick={() => navigate("/dashboard/command-builder")} disabled={!selectedBot} className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity glow-primary disabled:opacity-50">
+        <button onClick={() => navigate("/dashboard/command-builder")} disabled={!selectedBot} className="flex items-center justify-center gap-2 px-4 py-2 rounded-md bg-gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity glow-primary disabled:opacity-50 w-full sm:w-auto">
           <Plus className="w-4 h-4" /> New Command
         </button>
       </motion.div>
@@ -68,18 +68,18 @@ export default function DashboardCommands() {
             {filtered.map((cmd, i) => {
               const TypeIcon = typeIcon[cmd.type];
               return (
-                <motion.div key={cmd.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }} className="flex items-center justify-between p-4 rounded-lg border border-border bg-card hover:border-primary/20 transition-colors">
-                  <div className="flex items-center gap-4 cursor-pointer" onClick={() => navigate(`/dashboard/command-builder?edit=${cmd.id}`)}>
-                    <div className="p-2 rounded-md bg-primary/10"><TypeIcon className="w-4 h-4 text-primary" /></div>
-                    <div>
+                <motion.div key={cmd.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 p-3 sm:p-4 rounded-lg border border-border bg-card hover:border-primary/20 transition-colors">
+                  <div className="flex items-center gap-3 sm:gap-4 cursor-pointer min-w-0 flex-1" onClick={() => navigate(`/dashboard/command-builder?edit=${cmd.id}`)}>
+                    <div className="p-2 rounded-md bg-primary/10 shrink-0"><TypeIcon className="w-4 h-4 text-primary" /></div>
+                    <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-sm font-medium text-card-foreground">{cmd.name}</span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground uppercase tracking-wider">{typeLabel[cmd.type]}</span>
+                        <span className="font-mono text-sm font-medium text-card-foreground truncate">{cmd.name}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground uppercase tracking-wider shrink-0">{typeLabel[cmd.type]}</span>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">{cmd.description}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">{cmd.description}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3 sm:gap-4 ml-auto sm:ml-0 shrink-0">
                     <span className="text-xs text-muted-foreground font-mono">{cmd.uses} uses</span>
                     <button onClick={() => toggleCommand(cmd)} className="text-muted-foreground hover:text-foreground transition-colors">
                       {cmd.enabled ? <ToggleRight className="w-6 h-6 text-primary" /> : <ToggleLeft className="w-6 h-6" />}
