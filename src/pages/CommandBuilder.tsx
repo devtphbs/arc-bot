@@ -183,6 +183,11 @@ function CanvasBlock({ block, onUpdate, onDelete }: { block: CommandBlock; onUpd
     run_event: "event_name",
     log_error: "Error: {error_message}",
     create_thread: "Thread name | Initial message",
+    member_count: "Save to variable to use in reply (e.g. {member_count})",
+    channel_count: "Save to variable to use in reply (e.g. {channel_count})",
+    server_info: "Gets server name, icon, owner — save to variable",
+    user_info: "Gets user join date, roles, avatar — save to variable",
+    math: "{member_count} * 2 + 10",
   };
 
   return (
