@@ -46,6 +46,7 @@ export default function DashboardPolls() {
   const { selectedBot } = useBot();
   const { user } = useAuth();
   const [polls, setPolls] = useState<PollTemplate[]>([]);
+  const [allowedRoles, setAllowedRoles] = useState<string[]>([]);
   const [enabled, setEnabled] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -53,8 +54,9 @@ export default function DashboardPolls() {
     if (!selectedBot) return;
     supabase.from("bot_modules").select("*").eq("bot_id", selectedBot.id).eq("module_name", "polls").maybeSingle().then(({ data }) => {
       if (data?.config) {
-        const c = data.config as { polls?: PollTemplate[] };
+        const c = data.config as { polls?: PollTemplate[]; allowedRoles?: string[] };
         setPolls(c.polls || []);
+        setAllowedRoles(c.allowedRoles || []);
         setEnabled(data.enabled);
       }
     });
