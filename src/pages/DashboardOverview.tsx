@@ -1,5 +1,5 @@
 import { StatCard } from "@/components/StatCard";
-import { Users, Terminal, Server, Activity, Circle, Play, Square, RotateCcw, ExternalLink, Bot as BotIcon, BookOpen, Loader2, Copy, CheckCheck } from "lucide-react";
+import { Users, Terminal, Server, Activity, Circle, Play, Square, RotateCcw, ExternalLink, Bot as BotIcon, BookOpen, Loader2, Copy, CheckCheck, AlertTriangle } from "lucide-react";
 import { motion } from "framer-motion";
 import { useBot } from "@/hooks/useBot";
 import { useAuth } from "@/hooks/useAuth";
@@ -15,6 +15,7 @@ export default function DashboardOverview() {
   const [recentLogs, setRecentLogs] = useState<any[]>([]);
   const [botAction, setBotAction] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [showStopWarning, setShowStopWarning] = useState(false);
 
   useEffect(() => {
     if (!selectedBot || !user) return;
@@ -24,6 +25,12 @@ export default function DashboardOverview() {
 
   const manageBotAction = async (action: "start" | "stop" | "restart") => {
     if (!selectedBot || !user) return;
+
+    // Show stop warning
+    if (action === "stop") {
+      setShowStopWarning(true);
+    }
+
     setBotAction(action === "start" ? "starting" : action === "stop" ? "stopping" : "restarting");
     try {
       const { data, error } = await supabase.functions.invoke("manage-bot", {
@@ -42,6 +49,7 @@ export default function DashboardOverview() {
       toast.error(err.message || `Failed to ${action} bot`);
     } finally {
       setBotAction(null);
+      setShowStopWarning(false);
     }
   };
 
@@ -61,7 +69,7 @@ export default function DashboardOverview() {
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
         <h1 className="text-2xl font-semibold text-foreground">Overview</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          {selectedBot ? `Managing ${selectedBot.bot_name}` : "Select or add a bot to get started"}
+          {selectedBot ? `Managing ${selectedBot.bot_name} — use the sidebar to configure features` : "Select or add a bot to get started"}
         </p>
       </motion.div>
 
@@ -71,6 +79,17 @@ export default function DashboardOverview() {
         <StatCard title="Commands" value={commandCount} icon={Terminal} />
         <StatCard title="Status" value={selectedBot?.status || "N/A"} icon={Activity} />
       </div>
+
+      {/* Stop Warning Banner */}
+      {showStopWarning && (
+        <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="mt-4 rounded-lg border border-warning/30 bg-warning/10 p-4 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-card-foreground">Bot is stopping…</p>
+            <p className="text-xs text-muted-foreground mt-1">Turning off the bot might take a moment. Please don't make any other changes while the bot is stopping. The keepalive system will also stop reconnecting this bot.</p>
+          </div>
+        </motion.div>
+      )}
 
       {selectedBot && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
@@ -115,7 +134,7 @@ export default function DashboardOverview() {
                 </button>
               )}
 
-              <p className="text-[10px] text-muted-foreground text-center mt-3">Starting your bot registers slash commands with Discord and sets it online 24/7</p>
+              <p className="text-[10px] text-muted-foreground text-center mt-3">Starting your bot registers slash commands with Discord and connects it to the Gateway for 24/7 uptime. The keepalive system auto-reconnects every 2 minutes.</p>
             </div>
           </motion.div>
 
@@ -126,11 +145,11 @@ export default function DashboardOverview() {
             </h2>
             <div className="space-y-3">
               {[
-                { step: "1", title: "Create a bot on Discord", desc: "Go to the Discord Developer Portal → New Application → Bot tab → Create Bot → Copy the token.", link: "https://discord.com/developers/applications" },
-                { step: "2", title: "Connect your bot here", desc: "Click 'Add Bot' in the sidebar, paste your bot token. We validate it securely and never expose it." },
-                { step: "3", title: "Invite bot to your server", desc: "Click 'Copy Invite Link' above (or use the Developer Portal OAuth2 URL Generator with bot + applications.commands scopes)." },
-                { step: "4", title: "Create commands & modules", desc: "Use Commands to build slash commands with the visual builder. Set up Welcome, Reaction Roles, Moderation & more." },
-                { step: "5", title: "Start your bot", desc: "Click Start — your commands get synced to Discord and the bot goes online 24/7. Free forever!" },
+                { step: "1", title: "Create a bot on Discord", desc: "Go to the Discord Developer Portal → New Application → Bot tab → Create Bot → Copy the token. Enable 'Message Content Intent' under Privileged Gateway Intents for auto-responder and leveling features.", link: "https://discord.com/developers/applications" },
+                { step: "2", title: "Connect your bot here", desc: "Click 'Add Bot' in the sidebar, paste your bot token. We validate it securely with Discord's API and never expose it." },
+                { step: "3", title: "Invite bot to your server", desc: "Click 'Copy Invite Link' above. This includes bot + applications.commands scopes with administrator permissions." },
+                { step: "4", title: "Configure features", desc: "Use the sidebar to set up Commands, Welcome messages, Reaction Roles, Leveling, Moderation, Auto Responder, Giveaways, Polls, and more. All features are off by default — enable only what you need." },
+                { step: "5", title: "Start your bot", desc: "Click Start — your commands get synced to Discord and the bot connects to the Gateway. It stays online 24/7 with automatic reconnection every 2 minutes." },
               ].map((item) => (
                 <div key={item.step} className="flex items-start gap-3">
                   <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-xs font-bold text-primary">{item.step}</div>
@@ -152,7 +171,8 @@ export default function DashboardOverview() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="lg:col-span-2 rounded-lg border border-border bg-card p-5">
-          <h2 className="text-sm font-medium text-card-foreground mb-4">Recent Activity</h2>
+          <h2 className="text-sm font-medium text-card-foreground mb-1">Recent Activity</h2>
+          <p className="text-xs text-muted-foreground mb-3">Latest events from your bot including command usage, connection changes, and errors.</p>
           {recentLogs.length === 0 ? (
             <p className="text-sm text-muted-foreground">No activity yet. Connect a bot and create commands to get started.</p>
           ) : (
@@ -174,9 +194,9 @@ export default function DashboardOverview() {
           <h2 className="text-sm font-medium text-card-foreground mb-4">Quick Links</h2>
           <div className="space-y-2">
             {[
-              { label: "Discord Developer Portal", url: "https://discord.com/developers/applications", desc: "Manage your bot application" },
-              { label: "Bot Invite Generator", url: "https://discordapi.com/permissions.html", desc: "Generate invite links with permissions" },
-              { label: "Discord API Docs", url: "https://discord.com/developers/docs", desc: "Official API documentation" },
+              { label: "Discord Developer Portal", url: "https://discord.com/developers/applications", desc: "Manage your bot application & intents" },
+              { label: "Bot Invite Generator", url: "https://discordapi.com/permissions.html", desc: "Generate invite links with custom permissions" },
+              { label: "Discord API Docs", url: "https://discord.com/developers/docs", desc: "Official API documentation & reference" },
             ].map((link) => (
               <a key={link.url} href={link.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-2.5 rounded-md hover:bg-secondary/50 transition-colors group">
                 <div>
