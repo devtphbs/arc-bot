@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { Json } from "@/integrations/supabase/types";
+import { DiscordEntityPicker } from "@/components/DiscordEntityPicker";
 
 interface Giveaway {
   id: string;
@@ -160,8 +161,7 @@ export default function DashboardGiveaways() {
               {/* Channel, Duration, Winners */}
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block">📢 Channel ID</label>
-                  <input type="text" value={g.channelId} onChange={(e) => updateGiveaway(g.id, { channelId: e.target.value })} placeholder="Channel to post in" className="w-full px-3 py-2 rounded-md bg-background border border-border text-sm text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+                  <DiscordEntityPicker type="channel" value={g.channelId} onChange={(v) => updateGiveaway(g.id, { channelId: v })} label="📢 Channel" placeholder="Select channel" />
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block flex items-center gap-1"><Clock className="w-3 h-3" /> Duration</label>
@@ -197,13 +197,11 @@ export default function DashboardGiveaways() {
               {/* Role Requirements */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block flex items-center gap-1"><Shield className="w-3 h-3" /> Required Role ID</label>
-                  <input type="text" value={g.roleRequirement} onChange={(e) => updateGiveaway(g.id, { roleRequirement: e.target.value })} placeholder="Only this role can enter" className="w-full px-3 py-2 rounded-md bg-background border border-border text-sm text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+                  <DiscordEntityPicker type="role" value={g.roleRequirement} onChange={(v) => updateGiveaway(g.id, { roleRequirement: v })} label="🔒 Required Role" placeholder="Only this role can enter" />
                   <p className="text-[10px] text-muted-foreground mt-1">Leave empty = anyone can enter</p>
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block flex items-center gap-1"><ShieldCheck className="w-3 h-3" /> Bypass Role ID</label>
-                  <input type="text" value={g.bypassRole} onChange={(e) => updateGiveaway(g.id, { bypassRole: e.target.value })} placeholder="Skips all requirements" className="w-full px-3 py-2 rounded-md bg-background border border-border text-sm text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+                  <DiscordEntityPicker type="role" value={g.bypassRole} onChange={(v) => updateGiveaway(g.id, { bypassRole: v })} label="✅ Bypass Role" placeholder="Skips all requirements" />
                   <p className="text-[10px] text-muted-foreground mt-1">This role bypasses role + message requirements</p>
                 </div>
               </div>

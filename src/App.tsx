@@ -12,7 +12,7 @@ import NotFound from "./pages/NotFound";
 import { DashboardLayout } from "./components/DashboardLayout";
 import DashboardOverview from "./pages/DashboardOverview";
 import DashboardCommands from "./pages/DashboardCommands";
-import DashboardEvents from "./pages/DashboardEvents";
+// DashboardEvents removed - features exist in separate pages
 import DashboardModeration from "./pages/DashboardModeration";
 import DashboardAutomations from "./pages/DashboardAutomations";
 import DashboardLogs from "./pages/DashboardLogs";
@@ -67,7 +67,7 @@ const App = () => (
                 <Route path="variables" element={<DashboardVariables />} />
                 <Route path="social-alerts" element={<DashboardSocialAlerts />} />
                 <Route path="custom-scripts" element={<DashboardCustomCommands />} />
-                <Route path="events" element={<DashboardEvents />} />
+                {/* events route removed */}
                 <Route path="moderation" element={<DashboardModeration />} />
                 <Route path="automations" element={<DashboardAutomations />} />
                 <Route path="analytics" element={<DashboardAnalytics />} />

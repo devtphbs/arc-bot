@@ -1,5 +1,5 @@
 import {
-  LayoutDashboard, Terminal, Zap, Shield, RefreshCw, ScrollText, Settings, Bot, ChevronLeft, Plus, Circle,
+  LayoutDashboard, Terminal, Shield, RefreshCw, ScrollText, Settings, Bot, ChevronLeft, Plus, Circle,
   UserPlus, Heart, BarChart3, Trophy, Ticket, Palette, Medal, FileCode, Music, MessageSquare, Gift, Vote,
   Variable, Bell, Activity, DatabaseBackup, ClipboardList, Code2, CalendarClock, TrendingUp,
 } from "lucide-react";
@@ -46,7 +46,6 @@ const navSections = [
   {
     label: "Management",
     items: [
-      { title: "Events", url: "/dashboard/events", icon: Zap, desc: "Event-triggered actions" },
       { title: "Moderation", url: "/dashboard/moderation", icon: Shield, desc: "Auto-mod & safety tools" },
       { title: "Automations", url: "/dashboard/automations", icon: RefreshCw, desc: "Scheduled & triggered tasks" },
       { title: "Analytics", url: "/dashboard/analytics", icon: BarChart3, desc: "Usage stats & charts" },
