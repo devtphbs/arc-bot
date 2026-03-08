@@ -53,6 +53,9 @@ Deno.serve(async (req) => {
     if (interaction.action === "deploy_ticket_panel") {
       return await deployTicketPanel(adminClient, interaction);
     }
+    if (interaction.action === "deploy_reaction_role_panel") {
+      return await deployReactionRolePanel(adminClient, interaction);
+    }
     if (interaction.action === "end_giveaways") {
       return await autoEndGiveaways(adminClient);
     }
@@ -151,6 +154,11 @@ Deno.serve(async (req) => {
       }
       if (customId.startsWith("ticket_claim_")) {
         return await handleTicketClaim(interaction, bot, token, adminClient);
+      }
+
+      // Reaction role button (toggle role)
+      if (customId.startsWith("rr_")) {
+        return await handleReactionRoleButton(interaction, bot, token);
       }
 
       // Ticket category button (opens new ticket)
