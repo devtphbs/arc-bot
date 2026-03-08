@@ -144,10 +144,38 @@ Deno.serve(async (req) => {
         let content = script.script_code || "";
         // Remove metadata comments
         content = content.replace(/^\/\/.*/gm, "").trim();
-        
+
+        // Execute scrape() calls and collect results
+        const scrapeResults: string[] = [];
+        const scrapeRegex = /scrape\(\s*["'`](.+?)["'`]\s*,\s*["'`](.+?)["'`]\s*\)/g;
+        let scrapeMatch;
+        while ((scrapeMatch = scrapeRegex.exec(content)) !== null) {
+          const [, scrapeUrl, selector] = scrapeMatch;
+          try {
+            const res = await fetch(scrapeUrl, {
+              headers: { "User-Agent": "Mozilla/5.0 (compatible; ArcBot/1.0)" },
+            });
+            if (res.ok) {
+              const html = await res.text();
+              // Extract text using regex-based CSS selector matching
+              const extracted = extractBySelector(html, selector);
+              scrapeResults.push(extracted || "(no content found)");
+            } else {
+              scrapeResults.push(`(fetch error: ${res.status})`);
+            }
+          } catch (e: any) {
+            scrapeResults.push(`(scrape error: ${e.message})`);
+          }
+        }
+
         // Extract reply() calls
         const replyMatch = content.match(/reply\(["'`](.+?)["'`]\)/s);
         let replyText = replyMatch ? replyMatch[1] : "Script executed!";
+
+        // Replace scrape results {scrape.0}, {scrape.1}, etc.
+        replyText = replyText.replace(/\{scrape\.(\d+)\}/g, (_: string, idx: string) => {
+          return scrapeResults[parseInt(idx)] ?? "(no scrape result)";
+        });
 
         // Replace variables
         replyText = replyText
@@ -162,6 +190,9 @@ Deno.serve(async (req) => {
         replyText = replyText.replace(/\{options\.(\w+)\}/g, (_: string, name: string) => {
           return optionsMap[name] !== undefined ? String(optionsMap[name]) : "";
         });
+
+        // Truncate to Discord's 2000 char limit
+        if (replyText.length > 2000) replyText = replyText.substring(0, 1997) + "...";
 
         adminClient.from("bot_logs").insert({ bot_id: bot.id, user_id: bot.user_id, level: "info", source: "script", message: `Script /${commandName} used by ${interaction.member?.user?.username || "unknown"}` });
         return respond({ type: 4, data: { content: replyText } });
