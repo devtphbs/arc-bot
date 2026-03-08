@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Code2, Plus, Search, Trash2, ToggleLeft, ToggleRight, Save, X, ChevronDown, ChevronUp } from "lucide-react";
+import { Code2, Plus, Search, Trash2, ToggleLeft, ToggleRight, Save, X, ChevronDown, ChevronUp, Globe, BookOpen, Copy, Check } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useBot } from "@/hooks/useBot";
@@ -36,35 +36,92 @@ const OPTION_TYPES: { value: string; label: string; discord_type: number }[] = [
 ];
 
 const SCRIPT_TEMPLATE = `// Custom Script — runs when the trigger command is used
-// Available variables:
-//   {user} — mention of the user who ran the command
-//   {user.id} — the user's Discord ID
-//   {user.name} — the user's display name
-//   {channel} — mention of the current channel
-//   {channel.id} — the channel's ID
-//   {server.name} — the server's name
-//   {args} — all arguments after the command
-//   {args.0}, {args.1}, ... — individual arguments
-//   {options.name} — value of the option named "name"
 //
-// Available actions:
-//   reply("message")       — reply to the command
-//   send(channelId, "msg") — send a message to a specific channel
-//   addRole(userId, roleId)    — add a role to a user
-//   removeRole(userId, roleId) — remove a role from a user
-//   wait(seconds)          — wait before continuing
+// ── Variables ──
+//   {user}          — mention the user       {user.id}       — user's Discord ID
+//   {user.name}     — display name           {channel}       — mention channel
+//   {channel.id}    — channel ID             {server.name}   — server name
+//   {options.name}  — value of option "name"
+//
+// ── Actions ──
+//   reply("message")                — reply to the command
+//   send(channelId, "msg")          — send to a specific channel
+//   addRole(userId, roleId)         — add role to user
+//   removeRole(userId, roleId)      — remove role from user
+//   wait(seconds)                   — pause before continuing
 //   embed({ title, description, color, fields }) — send an embed
-//   scrape("https://example.com", ".css-selector") — fetch text from a website element
-//     → result available as {scrape.0}, {scrape.1}, etc. (one per scrape call)
-//     → use CSS selectors from the browser inspect element (e.g. ".price", "#title", "h1")
 //
-// Example:
-reply("Hello {user}! You said: {args}");
+// ── Web Scraping ──
+//   scrape("url", "selector")       — get text from a CSS selector
+//   scrapeAll("url", "selector")    — get ALL matching texts
+//   scrapeImage("url", "selector")  — get the image URL (src) from inside a selector
+//   scrapeAttr("url", "selector", "attribute") — get any HTML attribute value
+//
+//   Selectors you can use:
+//     ".price"         → class selector (elements with class="price")
+//     "#title"         → id selector (element with id="title")
+//     "h1"             → tag selector (first <h1> element)
+//     "div.product"    → tag + class (a <div> with class="product")
+//     ".card .name"    → nested (find .name inside .card)
+//     "[data-value]"   → attribute selector
+//
+//   Results are available as:
+//     {scrape.0}, {scrape.1}            — text results (in order of scrape() calls)
+//     {scrapeImage.0}                   — image URL results
+//     {scrapeAll.0.0}, {scrapeAll.0.1}  — individual items from scrapeAll
+//     {scrapeAll.0.join(", ")}          — join all items with a separator
+//     {scrapeAttr.0}                    — attribute value results
+//
+// ── Example: Get a product price & image ──
+// scrape("https://example.com/product", ".price")
+// scrapeImage("https://example.com/product", ".product-image")
+// reply("Price: {scrape.0}\\nImage: {scrapeImage.0}")
+//
+// ── Example: List top 5 headlines ──
+// scrapeAll("https://news.example.com", "h2.headline")
+// reply("Headlines:\\n{scrapeAll.0.join('\\n')}")
 
-// Scrape example:
-// scrape("https://example.com/api", ".result-text")
-// reply("The result is: {scrape.0}");
+reply("Hello {user}! Script is working.");
 `;
+
+const SCRAPE_EXAMPLES = [
+  {
+    title: "Get text from a class",
+    code: 'scrape("https://example.com", ".product-title")\nreply("Product: {scrape.0}")',
+    desc: "Finds the first element with class=\"product-title\" and returns its text content.",
+  },
+  {
+    title: "Get an image URL",
+    code: 'scrapeImage("https://example.com", ".hero-banner")\nreply("Banner image: {scrapeImage.0}")',
+    desc: "Finds the first <img> tag inside an element with class=\"hero-banner\" and returns its src URL.",
+  },
+  {
+    title: "Get multiple items",
+    code: 'scrapeAll("https://example.com/blog", "h2.post-title")\nreply("Posts:\\n{scrapeAll.0.join(\'\\n\')}")',
+    desc: "Finds ALL <h2> elements with class=\"post-title\" and joins them with newlines.",
+  },
+  {
+    title: "Get an attribute value",
+    code: 'scrapeAttr("https://example.com", ".download-btn", "href")\nreply("Download link: {scrapeAttr.0}")',
+    desc: "Gets the href attribute from the element with class=\"download-btn\".",
+  },
+  {
+    title: "Get by ID",
+    code: 'scrape("https://example.com", "#main-heading")\nreply("Heading: {scrape.0}")',
+    desc: "Finds the element with id=\"main-heading\" and returns its text.",
+  },
+  {
+    title: "Nested selectors",
+    code: 'scrape("https://example.com", ".card .price")\nscrape("https://example.com", ".card .name")\nreply("{scrape.1} costs {scrape.0}")',
+    desc: "Finds .price inside .card, then .name inside .card. Each scrape() call gets its own index.",
+  },
+  {
+    title: "Combine text + image",
+    code: 'scrape("https://store.com/item", ".item-name")\nscrape("https://store.com/item", ".item-price")\nscrapeImage("https://store.com/item", ".item-image")\nembed({ title: "{scrape.0}", description: "Price: {scrape.1}", image: "{scrapeImage.0}" })',
+    desc: "Scrape a product name, price, and image — then show them all in a Discord embed.",
+  },
+];
+
 
 export default function DashboardCustomCommands() {
   const { selectedBot } = useBot();
@@ -81,6 +138,7 @@ export default function DashboardCustomCommands() {
   const [triggerCommand, setTriggerCommand] = useState("");
   const [scriptCode, setScriptCode] = useState("");
   const [options, setOptions] = useState<ScriptOption[]>([]);
+  const [showScrapeRef, setShowScrapeRef] = useState(false);
 
   const fetchScripts = async () => {
     if (!selectedBot) return;
@@ -324,14 +382,98 @@ export default function DashboardCustomCommands() {
 
                 {/* Code Editor */}
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Script Code</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-medium text-muted-foreground">Script Code</label>
+                    <button
+                      onClick={() => setShowScrapeRef(!showScrapeRef)}
+                      className="flex items-center gap-1 px-2 py-1 rounded text-xs text-primary hover:bg-primary/10 transition-colors"
+                    >
+                      <BookOpen className="w-3 h-3" /> {showScrapeRef ? "Hide" : "Show"} Scraping Reference
+                    </button>
+                  </div>
                   <textarea
                     value={scriptCode}
                     onChange={(e) => setScriptCode(e.target.value)}
                     spellCheck={false}
-                    className="w-full h-80 px-4 py-3 rounded-md bg-[hsl(var(--secondary))] border border-input text-sm text-foreground font-mono leading-relaxed resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+                    className="w-full h-80 px-4 py-3 rounded-md bg-secondary border border-input text-sm text-foreground font-mono leading-relaxed resize-y focus:outline-none focus:ring-1 focus:ring-ring"
                   />
                 </div>
+
+                {/* Scraping Reference Panel */}
+                {showScrapeRef && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="rounded-lg border border-primary/20 bg-primary/5 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-primary/10 flex items-center gap-2">
+                      <Globe className="w-4 h-4 text-primary" />
+                      <span className="text-sm font-medium text-foreground">Web Scraping Reference</span>
+                    </div>
+                    <div className="p-4 space-y-4">
+                      {/* Quick reference */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="rounded-md bg-background border border-border p-3">
+                          <h4 className="text-xs font-semibold text-foreground mb-2">🔧 Scrape Functions</h4>
+                          <div className="space-y-1.5 text-[11px] font-mono">
+                            <div><span className="text-primary">scrape</span><span className="text-muted-foreground">("url", "selector")</span> <span className="text-muted-foreground ml-2">→ text</span></div>
+                            <div><span className="text-primary">scrapeAll</span><span className="text-muted-foreground">("url", "selector")</span> <span className="text-muted-foreground ml-2">→ all texts</span></div>
+                            <div><span className="text-primary">scrapeImage</span><span className="text-muted-foreground">("url", "selector")</span> <span className="text-muted-foreground ml-2">→ image URL</span></div>
+                            <div><span className="text-primary">scrapeAttr</span><span className="text-muted-foreground">("url", "selector", "attr")</span> <span className="text-muted-foreground ml-2">→ attribute</span></div>
+                          </div>
+                        </div>
+                        <div className="rounded-md bg-background border border-border p-3">
+                          <h4 className="text-xs font-semibold text-foreground mb-2">🎯 CSS Selectors</h4>
+                          <div className="space-y-1.5 text-[11px] font-mono">
+                            <div><span className="text-primary">.classname</span> <span className="text-muted-foreground ml-2">→ by class</span></div>
+                            <div><span className="text-primary">#myid</span> <span className="text-muted-foreground ml-2">→ by id</span></div>
+                            <div><span className="text-primary">h1</span>, <span className="text-primary">p</span>, <span className="text-primary">span</span> <span className="text-muted-foreground ml-2">→ by tag</span></div>
+                            <div><span className="text-primary">div.card</span> <span className="text-muted-foreground ml-2">→ tag + class</span></div>
+                            <div><span className="text-primary">.parent .child</span> <span className="text-muted-foreground ml-2">→ nested</span></div>
+                            <div><span className="text-primary">[data-price]</span> <span className="text-muted-foreground ml-2">→ by attribute</span></div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="rounded-md bg-background border border-border p-3">
+                        <h4 className="text-xs font-semibold text-foreground mb-2">📦 Using Results in reply()</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5 text-[11px] font-mono">
+                          <div><span className="text-primary">{'{scrape.0}'}</span> <span className="text-muted-foreground">→ 1st scrape() result</span></div>
+                          <div><span className="text-primary">{'{scrape.1}'}</span> <span className="text-muted-foreground">→ 2nd scrape() result</span></div>
+                          <div><span className="text-primary">{'{scrapeImage.0}'}</span> <span className="text-muted-foreground">→ 1st image URL</span></div>
+                          <div><span className="text-primary">{'{scrapeAttr.0}'}</span> <span className="text-muted-foreground">→ 1st attribute value</span></div>
+                          <div><span className="text-primary">{'{scrapeAll.0.0}'}</span> <span className="text-muted-foreground">→ 1st item of 1st scrapeAll</span></div>
+                          <div><span className="text-primary">{'{scrapeAll.0.join(", ")}'}</span> <span className="text-muted-foreground">→ all items joined</span></div>
+                        </div>
+                      </div>
+
+                      {/* Examples */}
+                      <div>
+                        <h4 className="text-xs font-semibold text-foreground mb-2">💡 Examples — click to insert</h4>
+                        <div className="grid grid-cols-1 gap-2">
+                          {SCRAPE_EXAMPLES.map((ex, i) => (
+                            <button
+                              key={i}
+                              onClick={() => {
+                                setScriptCode(ex.code);
+                                toast.success(`Inserted example: ${ex.title}`);
+                              }}
+                              className="text-left rounded-md bg-secondary/50 border border-border p-3 hover:border-primary/30 hover:bg-secondary transition-colors group"
+                            >
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs font-medium text-foreground">{ex.title}</span>
+                                <Copy className="w-3 h-3 text-muted-foreground group-hover:text-primary transition-colors" />
+                              </div>
+                              <pre className="text-[11px] font-mono text-primary/80 mb-1 whitespace-pre-wrap">{ex.code}</pre>
+                              <p className="text-[10px] text-muted-foreground">{ex.desc}</p>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="rounded-md bg-accent/30 border border-accent/20 p-3">
+                        <p className="text-[11px] text-muted-foreground">
+                          <strong className="text-foreground">💡 Tip:</strong> To find the right CSS selector, right-click any element on a website → <strong>Inspect</strong> → look at the <code className="text-primary">class=""</code> or <code className="text-primary">id=""</code> attribute. Use that as your selector with a dot (.) for classes or hash (#) for IDs.
+                        </p>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
 
                 {/* Actions */}
                 <div className="flex items-center justify-end gap-2">
