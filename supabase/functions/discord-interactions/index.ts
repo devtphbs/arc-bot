@@ -332,6 +332,310 @@ function respond(data: any) {
   return new Response(JSON.stringify(data), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
+// ─── Execute Command Builder Blocks ───────────────────────────────
+async function executeCommandBlocks(blocks: any[], variables: any[], interaction: any, token: string, bot: any, adminClient: any) {
+  const userId = interaction.member?.user?.id || "";
+  const userName = interaction.member?.user?.username || "unknown";
+  const guildId = interaction.guild_id || "";
+  const channelId = interaction.channel_id || "";
+
+  // Build variable context
+  const ctx: Record<string, string> = {
+    user: `<@${userId}>`,
+    "user.id": userId,
+    "user.name": userName,
+    channel: `<#${channelId}>`,
+    "channel.id": channelId,
+    server: guildId,
+    mention: `<@${userId}>`,
+  };
+
+  // Add custom variable defaults
+  for (const v of variables) {
+    if (v.key && !ctx[v.key]) ctx[v.key] = v.fallback || "";
+  }
+
+  // Add command options to context
+  const options = interaction.data?.options || [];
+  for (const opt of options) {
+    if (opt.type !== 1) { // not a subcommand
+      ctx[`options.${opt.name}`] = String(opt.value ?? "");
+    }
+  }
+
+  function resolve(text: string): string {
+    return text.replace(/\{([\w.]+)\}/g, (match: string, key: string) => ctx[key] ?? match);
+  }
+
+  let replyContent = "";
+  const embeds: any[] = [];
+
+  for (const block of blocks) {
+    try {
+      switch (block.type) {
+        case "reply": {
+          const text = resolve(block.value || "");
+          replyContent += (replyContent ? "\n" : "") + text;
+          break;
+        }
+        case "embed": {
+          try {
+            const parsed = JSON.parse(resolve(block.value || "{}"));
+            const embed: any = {};
+            if (parsed.title) embed.title = parsed.title;
+            if (parsed.description) embed.description = parsed.description;
+            if (parsed.color) embed.color = typeof parsed.color === "string" ? parseInt(parsed.color.replace("#", ""), 16) : parsed.color;
+            if (parsed.footer) embed.footer = { text: parsed.footer };
+            if (parsed.image) embed.image = { url: parsed.image };
+            if (parsed.thumbnail) embed.thumbnail = { url: parsed.thumbnail };
+            if (parsed.fields) embed.fields = parsed.fields;
+            embeds.push(embed);
+          } catch {
+            replyContent += (replyContent ? "\n" : "") + resolve(block.value || "");
+          }
+          break;
+        }
+        case "dm_user": {
+          try {
+            const dmChannelRes = await fetch(`https://discord.com/api/v10/users/@me/channels`, {
+              method: "POST", headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ recipient_id: userId }),
+            });
+            if (dmChannelRes.ok) {
+              const dmChannel = await dmChannelRes.json();
+              await fetch(`https://discord.com/api/v10/channels/${dmChannel.id}/messages`, {
+                method: "POST", headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ content: resolve(block.value || "") }),
+              });
+            }
+          } catch { /* DM failed silently */ }
+          break;
+        }
+        case "send_to_channel": {
+          const parts = (block.value || "").split("|").map((s: string) => s.trim());
+          const targetChannel = resolve(parts[0] || "");
+          const msg = resolve(parts.slice(1).join("|") || parts[0] || "");
+          if (targetChannel) {
+            await fetch(`https://discord.com/api/v10/channels/${targetChannel}/messages`, {
+              method: "POST", headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ content: msg }),
+            }).catch(() => {});
+          }
+          break;
+        }
+        case "add_role": {
+          const roleId = resolve(block.value || "").trim();
+          if (roleId && guildId) {
+            await fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${userId}/roles/${roleId}`, {
+              method: "PUT", headers: { Authorization: `Bot ${token}` },
+            }).catch(() => {});
+          }
+          break;
+        }
+        case "remove_role": {
+          const roleId = resolve(block.value || "").trim();
+          if (roleId && guildId) {
+            await fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${userId}/roles/${roleId}`, {
+              method: "DELETE", headers: { Authorization: `Bot ${token}` },
+            }).catch(() => {});
+          }
+          break;
+        }
+        case "toggle_role": {
+          const roleId = resolve(block.value || "").trim();
+          if (roleId && guildId) {
+            const hasRole = (interaction.member?.roles || []).includes(roleId);
+            await fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${userId}/roles/${roleId}`, {
+              method: hasRole ? "DELETE" : "PUT", headers: { Authorization: `Bot ${token}` },
+            }).catch(() => {});
+          }
+          break;
+        }
+        case "kick_user": {
+          const targetId = resolve(block.value || userId).trim();
+          if (guildId) {
+            await fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${targetId}`, {
+              method: "DELETE", headers: { Authorization: `Bot ${token}` },
+            }).catch(() => {});
+          }
+          break;
+        }
+        case "ban_user": {
+          const targetId = resolve(block.value || userId).trim();
+          if (guildId) {
+            await fetch(`https://discord.com/api/v10/guilds/${guildId}/bans/${targetId}`, {
+              method: "PUT", headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ delete_message_seconds: 0 }),
+            }).catch(() => {});
+          }
+          break;
+        }
+        case "set_nickname": {
+          const nick = resolve(block.value || "").trim();
+          if (guildId) {
+            await fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${userId}`, {
+              method: "PATCH", headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ nick }),
+            }).catch(() => {});
+          }
+          break;
+        }
+        case "purge_messages": {
+          const count = Math.min(parseInt(resolve(block.value || "10")) || 10, 100);
+          try {
+            const msgsRes = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages?limit=${count}`, {
+              headers: { Authorization: `Bot ${token}` },
+            });
+            if (msgsRes.ok) {
+              const msgs = await msgsRes.json();
+              const ids = msgs.map((m: any) => m.id);
+              if (ids.length > 1) {
+                await fetch(`https://discord.com/api/v10/channels/${channelId}/messages/bulk-delete`, {
+                  method: "POST", headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+                  body: JSON.stringify({ messages: ids }),
+                });
+              }
+            }
+          } catch { /* purge failed */ }
+          break;
+        }
+        case "member_count": {
+          try {
+            const guildRes = await fetch(`https://discord.com/api/v10/guilds/${guildId}?with_counts=true`, {
+              headers: { Authorization: `Bot ${token}` },
+            });
+            if (guildRes.ok) {
+              const guild = await guildRes.json();
+              const count = String(guild.approximate_member_count || guild.member_count || "unknown");
+              if (block.variableKey) ctx[block.variableKey] = count;
+              else replyContent += (replyContent ? "\n" : "") + count;
+            }
+          } catch { if (block.variableKey) ctx[block.variableKey] = "error"; }
+          break;
+        }
+        case "channel_count": {
+          try {
+            const chRes = await fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
+              headers: { Authorization: `Bot ${token}` },
+            });
+            if (chRes.ok) {
+              const channels = await chRes.json();
+              const count = String(channels.length);
+              if (block.variableKey) ctx[block.variableKey] = count;
+              else replyContent += (replyContent ? "\n" : "") + count;
+            }
+          } catch { if (block.variableKey) ctx[block.variableKey] = "error"; }
+          break;
+        }
+        case "server_info": {
+          try {
+            const guildRes = await fetch(`https://discord.com/api/v10/guilds/${guildId}?with_counts=true`, {
+              headers: { Authorization: `Bot ${token}` },
+            });
+            if (guildRes.ok) {
+              const guild = await guildRes.json();
+              const info = `**${guild.name}** | Members: ${guild.approximate_member_count || "?"} | Created: <t:${Math.floor(Number(BigInt(guild.id) >> 22n) / 1000 + 1420070400)}:R>`;
+              if (block.variableKey) ctx[block.variableKey] = info;
+              else replyContent += (replyContent ? "\n" : "") + info;
+            }
+          } catch { if (block.variableKey) ctx[block.variableKey] = "error"; }
+          break;
+        }
+        case "user_info": {
+          try {
+            const memberRes = await fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${userId}`, {
+              headers: { Authorization: `Bot ${token}` },
+            });
+            if (memberRes.ok) {
+              const member = await memberRes.json();
+              const joinedAt = member.joined_at ? `<t:${Math.floor(new Date(member.joined_at).getTime() / 1000)}:R>` : "?";
+              const roleCount = (member.roles || []).length;
+              const info = `**${member.user?.username || userName}** | Joined: ${joinedAt} | Roles: ${roleCount}`;
+              if (block.variableKey) ctx[block.variableKey] = info;
+              else replyContent += (replyContent ? "\n" : "") + info;
+            }
+          } catch { if (block.variableKey) ctx[block.variableKey] = "error"; }
+          break;
+        }
+        case "math": {
+          try {
+            const expr = resolve(block.value || "0");
+            // Safe math eval: only allow numbers, operators, parentheses
+            const sanitized = expr.replace(/[^0-9+\-*/().% ]/g, "");
+            const result = String(Function(`"use strict"; return (${sanitized})`)());
+            if (block.variableKey) ctx[block.variableKey] = result;
+            else replyContent += (replyContent ? "\n" : "") + result;
+          } catch { if (block.variableKey) ctx[block.variableKey] = "NaN"; }
+          break;
+        }
+        case "random_choice": {
+          const choices = (block.value || "").split("\n").map((s: string) => s.trim()).filter(Boolean);
+          const pick = choices[Math.floor(Math.random() * choices.length)] || "";
+          if (block.variableKey) ctx[block.variableKey] = resolve(pick);
+          else replyContent += (replyContent ? "\n" : "") + resolve(pick);
+          break;
+        }
+        case "wait": {
+          const secs = Math.min(parseInt(block.value || "1") || 1, 5);
+          await new Promise((r) => setTimeout(r, secs * 1000));
+          break;
+        }
+        case "condition":
+        case "check_role":
+        case "check_permission":
+        case "check_channel":
+        case "cooldown_check": {
+          // Conditions: skip rest if failed (simplified)
+          const val = resolve(block.value || "");
+          if (block.type === "check_role") {
+            const hasRole = (interaction.member?.roles || []).includes(val);
+            if (!hasRole) return { content: `❌ You need the <@&${val}> role.`, embeds: [] };
+          }
+          if (block.type === "check_channel") {
+            if (channelId !== val) return { content: `❌ This command can only be used in <#${val}>.`, embeds: [] };
+          }
+          break;
+        }
+        case "create_thread": {
+          const parts = (block.value || "").split("|").map((s: string) => s.trim());
+          const threadName = resolve(parts[0] || "Thread");
+          const initialMsg = resolve(parts[1] || "");
+          try {
+            const threadRes = await fetch(`https://discord.com/api/v10/channels/${channelId}/threads`, {
+              method: "POST", headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ name: threadName, type: 11 }),
+            });
+            if (threadRes.ok && initialMsg) {
+              const thread = await threadRes.json();
+              await fetch(`https://discord.com/api/v10/channels/${thread.id}/messages`, {
+                method: "POST", headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ content: initialMsg }),
+              });
+            }
+          } catch { /* thread creation failed */ }
+          break;
+        }
+        case "log_error":
+        case "run_event":
+        default:
+          break;
+      }
+
+      // Store variable output
+      if (block.variableKey && block.type === "reply") {
+        ctx[block.variableKey] = resolve(block.value || "");
+      }
+    } catch (err: any) {
+      console.error(`Block ${block.type} error:`, err.message);
+    }
+  }
+
+  // Final resolve on reply content (in case variables were set by later blocks)
+  replyContent = replyContent.replace(/\{([\w.]+)\}/g, (match: string, key: string) => ctx[key] ?? match);
+
+  return { content: replyContent || null, embeds };
+}
+
 // ─── Deploy Ticket Panel ──────────────────────────────────────────
 async function deployTicketPanel(adminClient: any, payload: any) {
   const { bot_id, channel_id, categories } = payload;
