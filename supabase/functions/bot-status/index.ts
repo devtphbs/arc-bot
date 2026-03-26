@@ -1,11 +1,59 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.98.0";
+/// <reference path="../deno-types.d.ts" />
+import { createClient } from "@supabase/supabase-js";
+
+// @ts-nocheck
+interface Bot {
+  id: string;
+  user_id: string;
+  bot_name: string;
+  bot_id: string | null;
+  status: string;
+  guild_count: number | null;
+  updated_at: string;
+  token_encrypted: string;
+}
+
+interface BotStatusResponse {
+  bot: {
+    id: string;
+    bot_id: string | null;
+    name: string;
+    status: string;
+    guild_count: number | null;
+    updated_at: string;
+  };
+  checks: {
+    token_valid: boolean;
+    gateway_reachable: boolean;
+    gateway_shards: number | null;
+    gateway_session_start_limit: number | null;
+  };
+  discord_bot: {
+    id: string;
+    username: string;
+    avatar: string;
+  } | null;
+  errors: {
+    token_error: string | null;
+    gateway_error: string | null;
+  };
+  recent_logs: Array<{
+    id: string;
+    level: string;
+    source: string | null;
+    message: string;
+    created_at: string;
+  }>;
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS, PUT, DELETE",
+  "Access-Control-Max-Age": "86400",
 };
 
-Deno.serve(async (req) => {
+Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -37,7 +85,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { bot_id } = await req.json();
+    const { bot_id } = await req.json() as { bot_id?: string };
     if (!bot_id) {
       return new Response(JSON.stringify({ error: "bot_id required" }), {
         status: 400,
@@ -55,7 +103,7 @@ Deno.serve(async (req) => {
       .select("id, user_id, bot_name, bot_id, status, guild_count, updated_at, token_encrypted")
       .eq("id", bot_id)
       .eq("user_id", user.id)
-      .maybeSingle();
+      .maybeSingle() as { data: Bot | null };
 
     if (!bot) {
       return new Response(JSON.stringify({ error: "Bot not found" }), {

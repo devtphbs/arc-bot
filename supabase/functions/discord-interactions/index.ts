@@ -1,9 +1,14 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.98.0";
 import nacl from "https://esm.sh/tweetnacl@1.0.3";
 
+// @ts-ignore - External module imports
+// @ts-ignore - Deno global
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-signature-ed25519, x-signature-timestamp",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS, PUT, DELETE",
+  "Access-Control-Max-Age": "86400",
 };
 
 function hexToUint8Array(hex: string): Uint8Array {
