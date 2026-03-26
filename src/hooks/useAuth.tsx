@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin,
+        redirectTo: 'https://arc-bot-free.vercel.app',
       },
     });
     if (error) {
