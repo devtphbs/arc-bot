@@ -1,5 +1,5 @@
 /// <reference path="../deno-types.d.ts" />
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "npm:@supabase/supabase-js";
 
 // @ts-nocheck
 interface Bot {
