@@ -1,4 +1,28 @@
-project_id = "askuqgfjorxcfavzevoo"
+project_id = "zsnzfbphhomncutpbegw"
 
 [functions.discord-interactions]
+verify_jwt = false
+
+[functions.manage-bot]
+verify_jwt = false
+
+[functions.validate-bot-token]
+verify_jwt = false
+
+[functions.bot-status]
+verify_jwt = false
+
+[functions.discord-gateway]
+verify_jwt = false
+
+[functions.execute-blocks]
+verify_jwt = false
+
+[functions.export-python]
+verify_jwt = false
+
+[functions.bot-keepalive]
+verify_jwt = false
+
+[functions.send-scheduled-messages]
 verify_jwt = false
