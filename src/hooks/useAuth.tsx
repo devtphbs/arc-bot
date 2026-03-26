@@ -18,6 +18,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Handle OAuth callback
+    const handleAuthCallback = async () => {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const accessToken = hashParams.get('access_token');
+      
+      if (accessToken) {
+        // Clear the hash from URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+        
+        // Supabase will automatically handle the session from the URL
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (session && !error) {
+          setSession(session);
+          setUser(session.user);
+        }
+      }
+    };
+
+    handleAuthCallback();
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
